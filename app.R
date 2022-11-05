@@ -25,7 +25,7 @@ ui <- fluidPage(
   ),
 
   ### Application title
-  titlePanel("ANCOVA Demo"),
+  titlePanel("ANCOVA Demo App"),
 
   #### Sidebar panel layout
   sidebarLayout(
@@ -39,14 +39,17 @@ ui <- fluidPage(
                     select(where(is.factor)) %>%
                     names()),
       checkboxGroupInput("chkGrp_regs","Select regression line(s)",
-                         choices=c("No groups"="all","Grouped by binary variable"="by_bi")),
+                         choices=c("Mod1: No groups"="all",
+                                   "Mod2: Grouped by binary variable"="by_bi")),
       checkboxGroupInput("chkGrp_ancova","Run ANCOVA on",
-                         choices=c("Full model with interaction"="full_mod_wIntxn"))
+                         choices=c("Full model with interaction"="full_mod_wIntxn",
+                                   "Model without interaction"="mod_noIntxn"))
     ),
 
     #### Show tables and a plot of the data
     mainPanel(width=10,
       #summary stats in tables
+      h3(strong("Summary Statistics")),
       fluidRow(
         column(4,
           tableOutput("sum_tab_noGroup")
@@ -59,9 +62,10 @@ ui <- fluidPage(
       #add horizontal line
       hr(),
       #interactive plot
+      h3(strong("Scatter Plot")),
       fluidRow(
         column(5,
-          plotlyOutput("scatter_plot")
+          plotlyOutput("scatter_plot",height="480px")
         ),
         #add vertical space between plot and table(s)
         # column(1),
@@ -78,13 +82,14 @@ ui <- fluidPage(
       ),
       #add second horizontal line
       hr(),
-      #anova table
+      #ancova/anova table
+      htmlOutput("ancova_subtitle"),
       fluidRow(
         column(5,
-          tableOutput("ancova_sum_tab")
+          tableOutput("ancova_fullmod_sum_tab")
         ),
         column(5,
-          tableOutput("ancova_anova_tab")
+          tableOutput("ancova_mod_sum_tab")
         )
       )
     )
@@ -122,8 +127,8 @@ server <- function(input, output, session) {
     mtcars %>%
       ggplot(aes(label=model)) +
       geom_point(aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat)),size=2,alpha=0.7) +
-      #expand_limits(x=c(0,NA),y=c(0,NA)) +
-      scale_color_viridis_d() +
+      expand_limits(x=c(0,NA),y=c(0,NA)) +
+      scale_color_viridis_d(end=0.7) +
       theme_bw() +
       theme(text=element_text(size=16)) -> p1
       
@@ -155,7 +160,31 @@ server <- function(input, output, session) {
   
   
   ### Reactive expressions of models
-  ## Without groups
+  ## Model 1: Full, interactive model (4 params)
+  mod1<-reactive({
+    
+  })
+  
+  
+  ## Model 2: Full, additive model (3 params)
+  
+  
+  ## Model 3: Common intercept and different slops (3 params)
+  
+  
+  ## Model 4: No effect of continuous variable (2 params)
+  
+  
+  ## Model 5: No effect of binary variable (2 params)
+  
+  
+  ## Model 6: Null model (1 param)
+
+  
+  
+  
+  
+  ## Linear regression without groups
   mod1<-reactive({
     req(input$chkGrp_regs=="all")
     mtcars %>%
@@ -163,7 +192,7 @@ server <- function(input, output, session) {
   })
   
   
-  ## With groups separately
+  ## Linear regression with groups separately
   # Level 0
   mod2a<-reactive({
     req(input$chkGrp_regs=="by_bi")
@@ -181,11 +210,19 @@ server <- function(input, output, session) {
   })
   
   
-  ## With groups with interaction
-  mod3<-reactive({
+  ## ANCOVA 
+  # With interaction
+  mod3a<-reactive({
     req(input$chkGrp_ancova=="full_mod_wIntxn")
     mtcars %>%
       lm(paste0("mpg","~",input$sel_cat,"*",input$sel_num) %>% as.formula(),data=.)
+  })
+  
+  # Without interaction
+  mod3b<-reactive({
+    req(input$chkGrp_ancova=="mod_noIntxn")
+    mtcars %>%
+      lm(paste0("mpg","~",input$sel_cat,"+",input$sel_num) %>% as.formula(),data=.)
   })
   
   
@@ -217,21 +254,39 @@ server <- function(input, output, session) {
       tidy() %>%
       select(-c(statistic,p.value))},
     striped=TRUE,hover=TRUE,
-    caption="Binary variable = 1 (yellow)",
+    caption="Binary variable = 1 (green)",
     caption.placement=getOption("xtable.caption.placement","top")
   )
   
   
   ### ANCOVA output
-  output$ancova_sum_tab<-renderTable({
-    mod3() %>%
+  ## Subtitle
+  output$ancova_subtitle<-renderUI({
+    req(input$chkGrp_ancova)
+    HTML("<b><h3>ANCOVA Model Output</b></h3>")
+  })
+  
+  
+  ## Model
+  # With interaction
+  output$ancova_fullmod_sum_tab<-renderTable({
+    mod3a() %>%
       anova() %>%
       tidy()},
-    striped=TRUE,hover=TRUE,
+    striped=TRUE,hover=TRUE,digits=2,
     caption="Full model (with interaction)",
     caption.placement=getOption("xtable.caption.placement","top")
   )
   
+  # Without interaction
+  output$ancova_mod_sum_tab<-renderTable({
+    mod3b() %>%
+      anova() %>%
+      tidy()},
+    striped=TRUE,hover=TRUE,digits=2,
+    caption="Model (without interaction)",
+    caption.placement=getOption("xtable.caption.placement","top")
+  )
   
 }
 
@@ -241,27 +296,21 @@ shinyApp(ui = ui, server = server)
 
 
 ## NEXT
-# add 'subtitles' for each section (e.g., Summary Statistics, Linear Models, ANCOVA)
+
 
 
 ## DONE
+# added subtitles (including dynamically displaying last one)
+# updated color and scales of plot
+# added model without interaction to UI and server
+
+
+
+## LAST COMMIT
 # added title tables using renderTable
 # split up 'grouped data' into two separate reg models
 # displayed separate reg models (by group levels) next to each other
 # displayed ANCOVA output full model
 
 
-
-## LAST COMMIT
-# got functionality of smoothers to work
-# improved layout
-# turned scatter plot into a plotly
-# created reactive model objects
-# dynamically display stats of models
-## changed varSelectInputs to selectInputs
-
-
-# mod1<-lm(mpg~disp,data=mtcars)
-# summary(mod1)[[4]][,1]
-# summary(mod1)[[8]]
 
