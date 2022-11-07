@@ -60,11 +60,11 @@ ui <- fluidPage(
       #summary stats in tables
       h3(strong("Summary Statistics")),
       fluidRow(
-        column(4,
+        column(5,
           tableOutput("sum_tab_noGroup")
         ),
         column(1),
-        column(5,
+        column(4,
           tableOutput("sum_tab_wGroup")
         )
       ),
@@ -73,19 +73,13 @@ ui <- fluidPage(
       #interactive plot
       h3(strong("Scatter Plot")),
       fluidRow(
-        column(5,
-          plotlyOutput("scatter_plot")
+        column(7,
+          plotlyOutput("scatter_plot",height="500px")
         ),
-      #add tables below plot
-      # fixedRow(
-      #   column(tableOutput("mod1_tab"),
-      #   tableOutput("mod2_tab"),
-      #   
-      # )
         #add vertical space between plot and table(s)
-        # column(1),
+        column(1),
         #model outputs
-        column(5,
+        column(2,
           tableOutput("mod_tab")
         )
           # br(),
@@ -114,7 +108,7 @@ ui <- fluidPage(
 #### Define server function
 server <- function(input, output, session) {
   
-  ### Output tables using selected variables
+  ### Output summary stats tables using selected variables
   ## No groups
   output$sum_tab_noGroup<-renderTable({
     mtcars %>%
@@ -136,6 +130,27 @@ server <- function(input, output, session) {
     caption.placement=getOption("xtable.caption.placement","top")
   )
 
+  
+  ### Create reactive model object
+  model<-reactive({
+    req(input$rad_mod)
+    switch(input$rad_mod,
+           mod1=mtcars %>%
+             lm(paste0("mpg","~",input$sel_cat,"*",input$sel_num) %>% as.formula(),data=.),
+           mod2=mtcars %>%
+             lm(paste0("mpg","~",input$sel_cat,"+",input$sel_num) %>% as.formula(),data=.),
+           mod3=mtcars %>%
+             lm(paste0("mpg","~",input$sel_num,"+",input$sel_cat,":",input$sel_num) %>% as.formula(),data=.),
+           mod4=mtcars %>%
+             lm(paste0("mpg","~",input$sel_cat) %>% as.formula(),data=.),
+           mod5=mtcars %>%
+             lm(paste0("mpg","~",input$sel_num) %>% as.formula(),data=.),
+           mod6=mtcars %>%
+             lm(paste0("mpg","~","1") %>% as.formula(),data=.)
+    )
+  })
+  
+  
   ### Output scatterplot
   ## ggplot (scatter plot colored by binary variable)
   output$scatter_plot <- renderPlotly({
@@ -145,84 +160,121 @@ server <- function(input, output, session) {
       expand_limits(x=c(0,NA),y=c(0,NA)) +
       scale_color_viridis_d(end=0.7) +
       theme_bw() +
-      theme(text=element_text(size=16)) -> p
+      theme(text=element_text(size=16)) -> p1
     
       
-    ## add abline using model(s) selected in checkbox group input
+  ## add abline using model(s) selected in checkbox group input
     #   if(!is.null(input$chkGrp_regs)){
     #     if(length(input$chkGrp_regs)==2){
-    #       p1 + 
+    #       p1 +
     #         geom_smooth(aes(x=!!sym(input$sel_num),y=mpg), method="lm",se=FALSE) +
     #         geom_smooth(aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat)),method="lm",se=FALSE) -> p2
     #     }
     #     else if(input$chkGrp_regs=="all"){
-    #       p1 + 
+    #       p1 +
     #         geom_smooth(aes(x=!!sym(input$sel_num),y=mpg), method="lm",se=FALSE) -> p2
     #     }
     #     else if(input$chkGrp_regs=="by_bi"){
-    #       p1 + 
+    #       p1 +
     #         geom_smooth(aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat)),method="lm",se=FALSE) -> p2
     #     }
     #   }
     # 
     # else{p1->p2}
+
+    
+    if(!is.null(input$rad_mod)){
+      if(input$rad_mod=="mod1"){
+        p1 +
+          geom_smooth(method="lm",se=FALSE,
+                      aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat))) -> p2
+      }
+      
+      else if(input$rad_mod %in% paste0("mod",2:4)) {
+        range1<-find_range(mtcars,input$sel_num,input$sel_cat,0,model())
+        range2<-find_range(mtcars,input$sel_num,input$sel_cat,1,model())
+
+        p1 +
+          segment_line(range1) +
+          segment_line(range2) -> p2
+      }
+      
+      else if(input$rad_mod=="mod5"){
+        p1 +
+          geom_smooth(method="lm",se=FALSE, 
+                      aes(x=!!sym(input$sel_num),y=mpg)) -> p2
+      }
+      else if(input$rad_mod=="mod6"){
+        p1 +
+          geom_smooth(method="lm",se=FALSE, 
+                      aes(x=!!sym(input$sel_num),y=mpg),
+                      formula=y~1) -> p2
+      }
+    
+    }
+    
+    else{p1->p2}
+    
+    
     
     ## turn ggplot object into a plotly
-    ggplotly(p) %>% 
+    ggplotly(p2) %>% 
       #put legend centered underneath plot
       layout(legend=list(
         orientation="h",xanchor="center",x=.5,y=-.3))
   })
   
   
-  ### Reactive expressions of models
-  ## Model 1: Full, interactive model (4 params)
-  mod1<-reactive({
-    req(input$rad_mod=="mod1")
-    mtcars %>%
-      lm(paste0("mpg","~",input$sel_cat,"*",input$sel_num) %>% 
-           as.formula(),data=.)
-  })
+
   
   
-  ## Model 2: Full, additive model (3 params)
-  mod2<-reactive({
-    req(input$rad_mod=="mod2")
-    mtcars %>%
-      lm(paste0("mpg","~",input$sel_cat,"+",input$sel_num) %>% as.formula(),data=.)
-  })
-  
-  
-  ## Model 3: Common intercept and different slopes (3 params)
-  mod3<-reactive({
-    req(input$rad_mod=="mod3")
-    mtcars %>%
-      lm(paste0("mpg","~",input$sel_num,"+",input$sel_num,":",input$sel_cat) %>% as.formula(),data=.)
-  })
-  
-  
-  ## Model 4: No effect of continuous variable (2 params)
-  mod4<-reactive({
-    req(input$rad_mod=="mod4")
-    mtcars %>%
-      lm(paste0("mpg","~",input$sel_cat) %>% as.formula(),data=.)
-  })
-  
-  
-  ## Model 5: No effect of binary variable (2 params)
-  mod5<-reactive({
-    req(input$rad_mod=="mod5")
-    mtcars %>%
-      lm(paste0("mpg","~",input$sel_num) %>% as.formula(),data=.)
-  })
-  
-  
-  ## Model 6: Null model (1 param)
-  mod6<-reactive({
-    req(input$rad_mod=="mod6")
-    mtcars %>%
-      lm(paste0("mpg","~","1") %>% as.formula(),data=.)
-  })
+  # ## Model 1: Full, interactive model (4 params)
+  # mod1<-reactive({
+  #   req(input$rad_mod=="mod1")
+  #   mtcars %>%
+  #     lm(paste0("mpg","~",input$sel_cat,"*",input$sel_num) %>% 
+  #          as.formula(),data=.)
+  # })
+  # 
+  # 
+  # ## Model 2: Full, additive model (3 params)
+  # mod2<-reactive({
+  #   req(input$rad_mod=="mod2")
+  #   mtcars %>%
+  #     lm(paste0("mpg","~",input$sel_cat,"+",input$sel_num) %>% as.formula(),data=.)
+  # })
+  # 
+  # 
+  # ## Model 3: Common intercept and different slopes (3 params)
+  # mod3<-reactive({
+  #   req(input$rad_mod=="mod3")
+  #   mtcars %>%
+  #     lm(paste0("mpg","~",input$sel_num,"+",input$sel_num,":",input$sel_cat) %>% as.formula(),data=.)
+  # })
+  # 
+  # 
+  # ## Model 4: No effect of continuous variable (2 params)
+  # mod4<-reactive({
+  #   req(input$rad_mod=="mod4")
+  #   mtcars %>%
+  #     lm(paste0("mpg","~",input$sel_cat) %>% as.formula(),data=.)
+  # })
+  # 
+  # 
+  # ## Model 5: No effect of binary variable (2 params)
+  # mod5<-reactive({
+  #   req(input$rad_mod=="mod5")
+  #   mtcars %>%
+  #     lm(paste0("mpg","~",input$sel_num) %>% as.formula(),data=.)
+  # })
+  # 
+  # 
+  # ## Model 6: Null model (1 param)
+  # mod6<-reactive({
+  #   req(input$rad_mod=="mod6")
+  #   mtcars %>%
+  #     lm(paste0("mpg","~","1") %>% as.formula(),data=.)
+  # })
   
   
   
@@ -280,15 +332,16 @@ server <- function(input, output, session) {
   
   
   
-  
-  # output$mod1_tab_noGroup<-renderTable({
-  #     mod1() %>%
-  #       tidy() %>%
-  #     select(-c(statistic,p.value))},
-  #     striped=TRUE,hover=TRUE,
-  #     caption="Model without groups",
-  #     caption.placement=getOption("xtable.caption.placement","top")
-  # )
+  ### Linear models
+  ## Display table
+  output$mod_tab<-renderTable({
+      model() %>%
+        tidy() %>%
+      select(-c(statistic,p.value))},
+      striped=TRUE,hover=TRUE,
+      caption="Model summary",
+      caption.placement=getOption("xtable.caption.placement","top")
+  )
   
   ## With groups
   # Level 0
@@ -350,18 +403,20 @@ shinyApp(ui = ui, server = server)
 
 ## NEXT
 # add more summary stats
+# second table(s) that provide slope and intercept (and R^2) of each model
 
 
 ## DONE
-# updated model choices (6 possibilities)
-# developed 6 reactive models
+# created a switch statement to generate one reactive model
+# displayed table with model summary next to plot
+# began adding regression lines dynamically to scatter plot
+# created backbone and function scripts
 
 
 
 ## LAST COMMIT
-# added subtitles (including dynamically displaying last one)
-# updated color and scales of plot
-# added model without interaction to UI and server
+# updated model choices (6 possibilities)
+# developed 6 reactive models
 
 
 
