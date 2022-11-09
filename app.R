@@ -3,7 +3,7 @@
 
 
 #load packages
-pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom)
+pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom,viridisLite)
 
 
 #load data
@@ -13,6 +13,10 @@ data(mtcars)
 mtcars<-as_tibble(mtcars,rownames="model") %>%
   select(-c(cyl,gear,carb)) %>%
   mutate(across(c(vs,am),~as.factor(.x)))
+
+
+#source in functions
+source(here("backbone_and_functions","ancova_demo_app_func_01.R"))
 
 
 #create model choices object
@@ -47,7 +51,7 @@ ui <- fluidPage(
                     select(where(is.factor)) %>%
                     names()),
       br(),
-      radioButtons("rad_mod","Select regression line(s)",
+      radioButtons("rad_mod","Select regression model",
                    choices=mod_choices,
                    selected=character(0)),
       # checkboxGroupInput("chkGrp_ancova","Run ANCOVA on",
@@ -77,7 +81,7 @@ ui <- fluidPage(
           plotlyOutput("scatter_plot",height="500px")
         ),
         #add vertical space between plot and table(s)
-        column(1),
+        #column(1),
         #model outputs
         column(2,
           tableOutput("mod_tab")
@@ -160,68 +164,65 @@ server <- function(input, output, session) {
       expand_limits(x=c(0,NA),y=c(0,NA)) +
       scale_color_viridis_d(end=0.7) +
       theme_bw() +
-      theme(text=element_text(size=16)) -> p1
-    
-      
-  ## add abline using model(s) selected in checkbox group input
-    #   if(!is.null(input$chkGrp_regs)){
-    #     if(length(input$chkGrp_regs)==2){
-    #       p1 +
-    #         geom_smooth(aes(x=!!sym(input$sel_num),y=mpg), method="lm",se=FALSE) +
-    #         geom_smooth(aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat)),method="lm",se=FALSE) -> p2
-    #     }
-    #     else if(input$chkGrp_regs=="all"){
-    #       p1 +
-    #         geom_smooth(aes(x=!!sym(input$sel_num),y=mpg), method="lm",se=FALSE) -> p2
-    #     }
-    #     else if(input$chkGrp_regs=="by_bi"){
-    #       p1 +
-    #         geom_smooth(aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat)),method="lm",se=FALSE) -> p2
-    #     }
-    #   }
-    # 
-    # else{p1->p2}
+      theme(text=element_text(size=16),
+            plot.title=element_text(size=12)) -> p1
 
-    
+    ## add line segments using model selected
     if(!is.null(input$rad_mod)){
-      if(input$rad_mod=="mod1"){
+      #if model 1:4 selected
+      if(input$rad_mod %in% paste0("mod",1:4)) {
+        range1<-find_range(mtcars,FALSE,input$sel_num,input$sel_cat,0,model())
+        range2<-find_range(mtcars,FALSE,input$sel_num,input$sel_cat,1,model())
+    
         p1 +
-          geom_smooth(method="lm",se=FALSE,
-                      aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat))) -> p2
+          #specify viridis color values to match data points (from scale_color_viridis_d above)
+          segment_line(range1,col=viridis(1,option="D",begin=0,end=0)) +
+          segment_line(range2,col=viridis(1,option="D",begin=0.7,end=0.7)) -> p2
       }
       
-      else if(input$rad_mod %in% paste0("mod",2:4)) {
-        range1<-find_range(mtcars,input$sel_num,input$sel_cat,0,model())
-        range2<-find_range(mtcars,input$sel_num,input$sel_cat,1,model())
-
+      #if model 5 selected (no effect of binary variable)
+      if(input$rad_mod=="mod5"){
+        range<-find_range(mtcars,FALSE,num=input$sel_num,lm=model())
+    
         p1 +
-          segment_line(range1) +
-          segment_line(range2) -> p2
+          #set color to blue
+          segment_line(range,col="blue") -> p2
       }
       
-      else if(input$rad_mod=="mod5"){
+      #if null model selected
+      if(input$rad_mod=="mod6"){
+        range<-find_range(mtcars,TRUE,num=input$sel_num,lm=model())
+    
         p1 +
-          geom_smooth(method="lm",se=FALSE, 
-                      aes(x=!!sym(input$sel_num),y=mpg)) -> p2
-      }
-      else if(input$rad_mod=="mod6"){
-        p1 +
-          geom_smooth(method="lm",se=FALSE, 
-                      aes(x=!!sym(input$sel_num),y=mpg),
-                      formula=y~1) -> p2
+          #use default color black
+          segment_line(range) -> p2
       }
     
     }
-    
+
     else{p1->p2}
     
     
     
     ## turn ggplot object into a plotly
-    ggplotly(p2) %>% 
-      #put legend centered underneath plot
-      layout(legend=list(
-        orientation="h",xanchor="center",x=.5,y=-.3))
+    ggplotly(p2) %>%
+      #set deep bottom margin
+      layout(margin=list(b=160),
+             #put legend centered on right of plot
+             legend=list(orientation="v",yanchor="center",x=1.02,y=.5)) -> pltly1
+    
+      #if...else contingent upon whether model is selected
+      if(!is.null(input$rad_mod)) {
+        pltly1 %>%
+          #if so, then model equation added as caption
+          layout(annotations=list(x=0,y=-.35,showarrow=F,xref="paper",yref="paper",
+                              xanchor="left",yanchor="auto",xshift=0,yshift=0,
+                              text=get_formula(model()),
+                              font=list(size=13))) -> pltly2
+      }
+    else{pltly1 -> pltly2}
+    pltly2
+    
   })
   
   
@@ -339,7 +340,7 @@ server <- function(input, output, session) {
         tidy() %>%
       select(-c(statistic,p.value))},
       striped=TRUE,hover=TRUE,
-      caption="Model summary",
+      caption="Overall model summary",
       caption.placement=getOption("xtable.caption.placement","top")
   )
   
@@ -403,20 +404,23 @@ shinyApp(ui = ui, server = server)
 
 ## NEXT
 # add more summary stats
-# second table(s) that provide slope and intercept (and R^2) of each model
+# second table(s) that provide slope and intercept (and R^2) of each line (ind model)
+# add checkbox to display CI/PI bars (as geom_ribbon)
+# perhaps create another dropdown box to allow user to select only points of a specfic value of am/vs (or both)
+# later for ANCOVA analysis, have user choose manual or automated
 
 
 ## DONE
-# created a switch statement to generate one reactive model
-# displayed table with model summary next to plot
-# began adding regression lines dynamically to scatter plot
-# created backbone and function scripts
+# all reg lines now display dynamically and are colored appropriately
+# equation displays as caption when a model is selected
 
 
 
 ## LAST COMMIT
-# updated model choices (6 possibilities)
-# developed 6 reactive models
+# created a switch statement to generate one reactive model
+# displayed table with model summary next to plot
+# began adding regression lines dynamically to scatter plot
+# created backbone and function scripts
 
 
 

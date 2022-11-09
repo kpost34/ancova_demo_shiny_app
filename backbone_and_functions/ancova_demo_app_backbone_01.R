@@ -1,6 +1,9 @@
 #Created by Keith Post on 11/6/22
 #Backbone code for ANCOVA Demo App
 
+mtcars<-as_tibble(mtcars)
+mtcars$am<-as.factor(mtcars$am)
+
 #### Create models==================================================================================
 mod1<-lm(mpg~am*disp,data=mtcars)
 mod2<-lm(mpg~am+disp,data=mtcars)
@@ -85,8 +88,22 @@ y2<-yrange[2]
 c("xmin"=xmin,"xmax"=xmax,"y1"=y1,"y2"=y2)
 
 
+### mod5 (no effect of binary variable)
+xrange<-mtcars %>% pull(!!sym("disp")) %>% range() 
+
+yrange<-predict(mod5,tibble(!!sym("disp"):=xrange)) %>% unname()
+
+c("xmin"=xrange[1],"xmax"=xrange[2],"y1"=yrange[1],"y2"=yrange[2])
 
 
+### Null model (mod6) 
+xrange<-mtcars %>% pull(!!sym("disp")) %>% range() 
+
+ys<-mtcars %>% select(mpg) 
+
+predict(mod6,ys) %>% range() -> yrange
+
+c("xmin"=xrange[1],"xmax"=xrange[2],"y1"=yrange[1],"y2"=yrange[2])
 
 
 
