@@ -2,13 +2,6 @@
 #Functions for ANCOVA Demo App
 
 #### Server Functions===============================================================================
-### Function to easily pull parameters from lm objects
-pull_param<-function(lm,param="(Intercept)"){
-  tidy(lm) %>%
-    filter(term==param) %>%
-    pull(estimate)
-}
-
 ### Function to predict values
 find_range<-function(data,null=FALSE,num=NA,cat=NA,cat_val=NA,lm){
   # #first four models (1:4)
@@ -78,6 +71,33 @@ get_formula <- function(model) {
 }
 
 
+
+### Functions to pull out individual regression lines from regression models========================
+pull_param<-function(lm,slope,cat){
+  #create vectors for filtering
+  grp0_terms<-c("(Intercept)",slope)
+  grp1_terms<-c("(Intercept)",paste0(cat,1))
+  
+  #extract information for group 0 model
+  tidy(lm) %>%
+    filter(term %in% grp0_terms) %>%
+    mutate(!!sym(cat) := "0",
+           parameter=str_replace(term,slope,"slope")) %>%
+    select(sym(cat),parameter,estimate) -> mod_grp0
+  
+  #extract information for group 1 model
+  tidy(lm) %>%
+    mutate(parameter=ifelse(term %in% grp1_terms,
+                            "(Intercept)",
+                            "slope")) %>%
+    group_by(parameter) %>%
+    summarize(estimate=sum(estimate)) %>%
+    ungroup() %>%
+    mutate(!!sym(cat) := "1") -> mod_grp1
+  
+  #put together DFs into a list
+  bind_rows(mod_grp0,mod_grp1)
+}
 
 
 

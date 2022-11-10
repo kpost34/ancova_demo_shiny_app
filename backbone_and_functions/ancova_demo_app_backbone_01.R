@@ -107,6 +107,52 @@ c("xmin"=xrange[1],"xmax"=xrange[2],"y1"=yrange[1],"y2"=yrange[2])
 
 
 
+#### Pull separate models (by group) when regression line has two lines=============================
+grp0_terms<-c("(Intercept)","disp")
+grp1_int<-c("(Intercept)","am1")
+
+### mod1
+tidy(mod1) %>%
+  mutate(parameter=ifelse(term %in% c("(Intercept)","am1"),
+                          "(Intercept)",
+                          "slope"),
+         group=ifelse(str_detect(term,"am1"),
+                      "1",
+                      "0")) %>%
+  group_by(group) %>%
+  summarize(estimate=ifelse())
+
+## Group 0
+tidy(mod1) %>%
+  filter(term %in% grp0_terms) %>%
+  mutate(parameter=str_replace(term,"disp","slope")) %>%
+  select(parameter,estimate) -> mod1_grp0
+
+## Group 1
+tidy(mod1) %>%
+  mutate(parameter=ifelse(term %in% grp1_int,
+         "(Intercept)",
+         "slope")) %>%
+  group_by(parameter) %>%
+  summarize(estimate=sum(estimate)) %>%
+  ungroup() -> mod1_grp1
+  
+            
+            
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -80,18 +80,12 @@ ui <- fluidPage(
         column(7,
           plotlyOutput("scatter_plot",height="500px")
         ),
-        #add vertical space between plot and table(s)
-        #column(1),
-        #model outputs
+        #full model output
         column(2,
-          tableOutput("mod_tab")
+          tableOutput("mod1_tab"),
+          br(),
+          tableOutput("mod2_tab_wGroup")
         )
-          # br(),
-          # splitLayout(
-          #   tableOutput("mod2a_tab_wGroup"),
-          #   tableOutput("mod2b_tab_wGroup")
-          # )
-        # )
       ),
       #add second horizontal line
       hr(),
@@ -217,7 +211,7 @@ server <- function(input, output, session) {
           #if so, then model equation added as caption
           layout(annotations=list(x=0,y=-.35,showarrow=F,xref="paper",yref="paper",
                               xanchor="left",yanchor="auto",xshift=0,yshift=0,
-                              text=get_formula(model()),
+                              text=paste("Overall model:",get_formula(model())),
                               font=list(size=13))) -> pltly2
       }
     else{pltly1 -> pltly2}
@@ -227,83 +221,6 @@ server <- function(input, output, session) {
   
   
 
-  
-  
-  # ## Model 1: Full, interactive model (4 params)
-  # mod1<-reactive({
-  #   req(input$rad_mod=="mod1")
-  #   mtcars %>%
-  #     lm(paste0("mpg","~",input$sel_cat,"*",input$sel_num) %>% 
-  #          as.formula(),data=.)
-  # })
-  # 
-  # 
-  # ## Model 2: Full, additive model (3 params)
-  # mod2<-reactive({
-  #   req(input$rad_mod=="mod2")
-  #   mtcars %>%
-  #     lm(paste0("mpg","~",input$sel_cat,"+",input$sel_num) %>% as.formula(),data=.)
-  # })
-  # 
-  # 
-  # ## Model 3: Common intercept and different slopes (3 params)
-  # mod3<-reactive({
-  #   req(input$rad_mod=="mod3")
-  #   mtcars %>%
-  #     lm(paste0("mpg","~",input$sel_num,"+",input$sel_num,":",input$sel_cat) %>% as.formula(),data=.)
-  # })
-  # 
-  # 
-  # ## Model 4: No effect of continuous variable (2 params)
-  # mod4<-reactive({
-  #   req(input$rad_mod=="mod4")
-  #   mtcars %>%
-  #     lm(paste0("mpg","~",input$sel_cat) %>% as.formula(),data=.)
-  # })
-  # 
-  # 
-  # ## Model 5: No effect of binary variable (2 params)
-  # mod5<-reactive({
-  #   req(input$rad_mod=="mod5")
-  #   mtcars %>%
-  #     lm(paste0("mpg","~",input$sel_num) %>% as.formula(),data=.)
-  # })
-  # 
-  # 
-  # ## Model 6: Null model (1 param)
-  # mod6<-reactive({
-  #   req(input$rad_mod=="mod6")
-  #   mtcars %>%
-  #     lm(paste0("mpg","~","1") %>% as.formula(),data=.)
-  # })
-  
-  
-  
-  
-  # ## Linear regression without groups
-  # mod1<-reactive({
-  #   req(input$chkGrp_regs=="all")
-  #   mtcars %>%
-  #     lm(paste0("mpg","~",input$sel_num) %>% as.formula(),data=.)
-  # })
-  # 
-  # 
-  # ## Linear regression with groups separately
-  # # Level 0
-  # mod2a<-reactive({
-  #   req(input$chkGrp_regs=="by_bi")
-  #   mtcars %>%
-  #     filter(!!sym(input$sel_cat)==0) %>%
-  #     lm(paste0("mpg","~",input$sel_num) %>% as.formula(),data=.)
-  # })
-  # 
-  # # Level 1
-  # mod2b<-reactive({
-  #   req(input$chkGrp_regs=="by_bi")
-  #   mtcars %>%
-  #     filter(!!sym(input$sel_cat)==1) %>%
-  #     lm(paste0("mpg","~",input$sel_num) %>% as.formula(),data=.)
-  # })
   
   
   # ## ANCOVA 
@@ -334,8 +251,8 @@ server <- function(input, output, session) {
   
   
   ### Linear models
-  ## Display table
-  output$mod_tab<-renderTable({
+  ## Display table of full model
+  output$mod1_tab<-renderTable({
       model() %>%
         tidy() %>%
       select(-c(statistic,p.value))},
@@ -343,6 +260,19 @@ server <- function(input, output, session) {
       caption="Overall model summary",
       caption.placement=getOption("xtable.caption.placement","top")
   )
+  
+  ## Display tables of lines by group (if applicable)
+  output$mod2_tab_wGroup<-renderTable({
+    req(input$rad_mod %in% paste0("mod",1:4))
+    
+    #run function
+    pull_param(model(),input$sel_num,input$sel_cat)},
+    striped=TRUE,hover=TRUE,
+    caption="Regressions line by group",
+    caption.placement=getOption("xtable.caption.placement","top"))
+
+    
+
   
   ## With groups
   # Level 0
@@ -408,19 +338,18 @@ shinyApp(ui = ui, server = server)
 # add checkbox to display CI/PI bars (as geom_ribbon)
 # perhaps create another dropdown box to allow user to select only points of a specfic value of am/vs (or both)
 # later for ANCOVA analysis, have user choose manual or automated
+# remove reg line(s) (radio button) once a variable (num or cat/bin) is changed--isolate?
 
 
 ## DONE
-# all reg lines now display dynamically and are colored appropriately
-# equation displays as caption when a model is selected
+# created function and add app code to extract regression line information from larger models and
+  #display as a second table for mods 1-4
 
 
 
 ## LAST COMMIT
-# created a switch statement to generate one reactive model
-# displayed table with model summary next to plot
-# began adding regression lines dynamically to scatter plot
-# created backbone and function scripts
+# all reg lines now display dynamically and are colored appropriately
+# equation displays as caption when a model is selected
 
 
 
