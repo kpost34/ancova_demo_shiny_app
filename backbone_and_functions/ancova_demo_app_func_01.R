@@ -81,9 +81,10 @@ pull_param<-function(lm,slope,cat){
   #extract information for group 0 model
   tidy(lm) %>%
     filter(term %in% grp0_terms) %>%
-    mutate(!!sym(cat) := "0",
+    mutate(color = "purple",
+           !!sym(cat) := "0",
            parameter=str_replace(term,slope,"slope")) %>%
-    select(sym(cat),parameter,estimate) -> mod_grp0
+    select(color:parameter,estimate) -> mod_grp0
   
   #extract information for group 1 model
   tidy(lm) %>%
@@ -93,9 +94,10 @@ pull_param<-function(lm,slope,cat){
     group_by(parameter) %>%
     summarize(estimate=sum(estimate)) %>%
     ungroup() %>%
-    mutate(!!sym(cat) := "1") -> mod_grp1
+    mutate(color="green",
+           !!sym(cat) := "1") -> mod_grp1
   
-  #put together DFs into a list
+  #bind together DFs
   bind_rows(mod_grp0,mod_grp1)
 }
 

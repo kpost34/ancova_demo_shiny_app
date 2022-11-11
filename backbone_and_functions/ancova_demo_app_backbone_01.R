@@ -107,35 +107,72 @@ c("xmin"=xrange[1],"xmax"=xrange[2],"y1"=yrange[1],"y2"=yrange[2])
 
 
 
-#### Pull separate models (by group) when regression line has two lines=============================
-grp0_terms<-c("(Intercept)","disp")
-grp1_int<-c("(Intercept)","am1")
+#### Pull separate models (by group) when regression model has two lines============================
+group0_terms<-c("(Intercept)","disp")
+group1_terms<-c("(Intercept)","am1")
 
 ### mod1
-tidy(mod1) %>%
-  mutate(parameter=ifelse(term %in% c("(Intercept)","am1"),
-                          "(Intercept)",
-                          "slope"),
-         group=ifelse(str_detect(term,"am1"),
-                      "1",
-                      "0")) %>%
-  group_by(group) %>%
-  summarize(estimate=ifelse())
-
 ## Group 0
 tidy(mod1) %>%
-  filter(term %in% grp0_terms) %>%
-  mutate(parameter=str_replace(term,"disp","slope")) %>%
-  select(parameter,estimate) -> mod1_grp0
+  filter(term %in% group0_terms) %>%
+  mutate(color= "purple",
+         am = "0",
+         parameter=str_replace(term,"disp","slope")) %>%
+  select(color:parameter,estimate) -> model1_grp0
 
 ## Group 1
 tidy(mod1) %>%
-  mutate(parameter=ifelse(term %in% grp1_int,
-         "(Intercept)",
-         "slope")) %>%
+  mutate(parameter=ifelse(term %in% group1_terms,
+                          "(Intercept)",
+                          "slope")) %>%
   group_by(parameter) %>%
   summarize(estimate=sum(estimate)) %>%
-  ungroup() -> mod1_grp1
+  ungroup() %>%
+  mutate(color="green",
+         am = "1") -> model1_grp1
+
+## Bind together DFs
+bind_rows(model1_grp0,model1_grp1)
+
+
+### Find CI and PI==================================================================================
+### Confidence Interval
+## mod1
+## Get values
+predict(mod1,newdata=mtcars,interval="confidence") -> mod2_ci
+
+## Join with data
+mod2_ci %>%
+  as_tibble() %>%
+  bind_cols(mtcars %>%
+              select(disp,am,mpg)) -> mod2_ci_df
+
+## Plot
+mod2_ci_df %>%
+  ggplot() +
+  geom_point(aes(x=disp,y=mpg,color=am)) +
+  geom_line(data=~filter(.x,am==0),
+            aes(x=disp,y=fit,color=am)) +
+  geom_line(data=~filter(.x,am==1),
+            aes(x=disp,y=fit,color=am)) +
+  geom_ribbon(data=~filter(.x,am==0),
+              aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
+  geom_ribbon(data=~filter(.x,am==1),
+              aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
+  scale_color_viridis_d(end=0.7)
+
+x<-2
+
+mod2_ci_df %>%
+  ggplot() +
+  geom_point(aes(x=disp,y=mpg,color=am)) +
+  {if(x==1) (geom_line(data=~filter(.x,am==0),aes(x=disp,y=fit,color=am)) +) else .+} 
+  {if(x==2) geom_line(data=~filter(.x,am==1),aes(x=disp,y=fit,color=am)) + else .+} +
+  geom_ribbon(data=~filter(.x,am==0),
+              aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
+  geom_ribbon(data=~filter(.x,am==1),
+              aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
+  scale_color_viridis_d(end=0.7)
   
             
             

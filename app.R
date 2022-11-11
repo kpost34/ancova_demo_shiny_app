@@ -20,7 +20,8 @@ source(here("backbone_and_functions","ancova_demo_app_func_01.R"))
 
 
 #create model choices object
-mod_choices=c("Mod1: Full, interactive"="mod1",
+mod_choices=c("No model",
+              "Mod1: Full, interactive"="mod1",
               "Mod2: Full, additive"="mod2",
               "Mod3: Different slopes, common intercept" = "mod3",
               "Mod4: No effect of continuous variable"="mod4",
@@ -53,7 +54,7 @@ ui <- fluidPage(
       br(),
       radioButtons("rad_mod","Select regression model",
                    choices=mod_choices,
-                   selected=character(0)),
+                   selected="No model"),
       # checkboxGroupInput("chkGrp_ancova","Run ANCOVA on",
       #                    choices=paste0("Mod",1:6),
       #                    inline=TRUE)
@@ -162,7 +163,7 @@ server <- function(input, output, session) {
             plot.title=element_text(size=12)) -> p1
 
     ## add line segments using model selected
-    if(!is.null(input$rad_mod)){
+    if(input$rad_mod %in% paste0("mod",1:6)) {
       #if model 1:4 selected
       if(input$rad_mod %in% paste0("mod",1:4)) {
         range1<-find_range(mtcars,FALSE,input$sel_num,input$sel_cat,0,model())
@@ -206,7 +207,8 @@ server <- function(input, output, session) {
              legend=list(orientation="v",yanchor="center",x=1.02,y=.5)) -> pltly1
     
       #if...else contingent upon whether model is selected
-      if(!is.null(input$rad_mod)) {
+      # if(!is.null(input$rad_mod)) {
+      if(input$rad_mod %in% paste0("mod",1:6)) {
         pltly1 %>%
           #if so, then model equation added as caption
           layout(annotations=list(x=0,y=-.35,showarrow=F,xref="paper",yref="paper",
@@ -240,19 +242,9 @@ server <- function(input, output, session) {
   
   
   ### Linear models
-  ## Display table
-  # output$mod_tab<-renderTable({
-  #   mod_est()
-  # })
-  
-  
-  ## Without groups
-  
-  
-  
-  ### Linear models
   ## Display table of full model
   output$mod1_tab<-renderTable({
+    req(input$rad_mod %in% paste0("mod",1:6))
       model() %>%
         tidy() %>%
       select(-c(statistic,p.value))},
@@ -271,29 +263,6 @@ server <- function(input, output, session) {
     caption="Regressions line by group",
     caption.placement=getOption("xtable.caption.placement","top"))
 
-    
-
-  
-  ## With groups
-  # Level 0
-  # output$mod2a_tab_wGroup<-renderTable({
-  #   mod2a() %>%
-  #     tidy() %>%
-  #     select(-c(statistic,p.value))},
-  #   striped=TRUE,hover=TRUE,
-  #   caption="Binary variable = 0 (purple)",
-  #   caption.placement=getOption("xtable.caption.placement","top")
-  #   )
-  
-  # # Level 1
-  # output$mod2b_tab_wGroup<-renderTable({
-  #   mod2b() %>%
-  #     tidy() %>%
-  #     select(-c(statistic,p.value))},
-  #   striped=TRUE,hover=TRUE,
-  #   caption="Binary variable = 1 (green)",
-  #   caption.placement=getOption("xtable.caption.placement","top")
-  # )
   
   
   ### ANCOVA output
@@ -334,22 +303,24 @@ shinyApp(ui = ui, server = server)
 
 ## NEXT
 # add more summary stats
-# second table(s) that provide slope and intercept (and R^2) of each line (ind model)
 # add checkbox to display CI/PI bars (as geom_ribbon)
 # perhaps create another dropdown box to allow user to select only points of a specfic value of am/vs (or both)
 # later for ANCOVA analysis, have user choose manual or automated
-# remove reg line(s) (radio button) once a variable (num or cat/bin) is changed--isolate?
+# remove reg line(s) (radio button) once a variable (num or cat/bin) is changed--> return to "No model"--isolate?
+# reconsider "engine" for generating fitted lines--use predict instead? this will make it much easier to display lines and will work 
+  # with plotly better
 
 
 ## DONE
-# created function and add app code to extract regression line information from larger models and
-  #display as a second table for mods 1-4
-
+# added color as a column to regression line by group table
+# added a "No model" option (that displays only points) and adjusted downstream code
+# began developing backbone code to add CIs and conditionally add lines to plot
 
 
 ## LAST COMMIT
-# all reg lines now display dynamically and are colored appropriately
-# equation displays as caption when a model is selected
+# created function and add app code to extract regression line information from larger models and
+#display as a second table for mods 1-4
+
 
 
 
