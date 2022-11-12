@@ -117,6 +117,47 @@ combine_dat_fit<-function(mod,data,num,cat){
 
 
 #### Function to add regression lines to plot=======================================================
+add_reg_lines<-function(plot_obj,mod_num,num,cat){
+  #if models 1-4 selected, add separate line for each cat level
+  if(mod_num %in% paste0("mod",1:4)) {
+    plot_obj +
+      geom_line(data=~filter(.x,!!sym(cat)==0),
+                aes(x=!!sym(num),y=fit,color=!!sym(cat))) +
+      geom_line(data=~filter(.x,!!sym(cat)==1),
+                aes(x=!!sym(num),y=fit,color=!!sym(cat))) 
+  }
+  
+  #if model 5 selected (no effect of binary variable), add one regression line
+  else if(mod_num=="mod5"){
+    plot_obj +
+      #set color to blue
+      geom_line(aes(x=!!sym(num),y=fit),col="blue") 
+  }
+  
+  #if null model selected, add horizontal line at mean y
+  else if(mod_num=="mod6"){
+    plot_obj +
+      #use default color black
+      geom_line(aes(x=!!sym(num),y=fit)) 
+  }
+  
+  #if no model selected, no line is added
+  else if(mod_num=="mod0"){
+    plot_obj 
+  }
+}
+
+
+#### Function to add CI lines to plot===============================================================
+add_ci_lines<-function(plot_obj,mod_num,num,cat){
+  
+}
+
+
+
+
+
+
 
 
 

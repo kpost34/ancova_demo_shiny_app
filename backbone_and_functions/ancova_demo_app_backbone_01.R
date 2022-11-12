@@ -137,23 +137,35 @@ bind_rows(model1_grp0,model1_grp1)
 
 ### Find CI and PI==================================================================================
 ### Confidence Interval
-## mod1
 ## Get values
-predict(mod1,newdata=mtcars,interval="confidence") -> mod2_ci
+# mod1
+predict(mod1,newdata=mtcars,interval="confidence") -> mod1_ci
+
+# mod5
+predict(mod5,newdata=mtcars,interval="confidence") -> mod5_ci
 
 ## Join with data
-mod2_ci %>%
+# mod1
+mod1_ci %>%
   as_tibble() %>%
   bind_cols(mtcars %>%
-              select(disp,am,mpg)) -> mod2_ci_df
+              select(disp,am,mpg)) -> mod1_ci_df
 
-# Alternatively
+# mod5
+mod5_ci %>%
+  as_tibble() %>%
+  bind_cols(mtcars %>%
+              select(disp,am,mpg)) -> mod5_ci_df
+
+## Alternatively
+# mod1
 mtcars %>%
   select(disp,am,mpg) %>%
-  bind_cols(mod2_ci %>%
-              as_tibble()) -> mod2_ci_df
+  bind_cols(mod1_ci %>%
+              as_tibble()) -> mod1_ci_df
 
-# Third way
+## Third way
+# mod1
 x<-2
 
 mtcars %>%
@@ -163,26 +175,73 @@ mtcars %>%
 
 
 ## Plot
-mod2_ci_df %>%
-  ggplot() +
-  geom_point(aes(x=disp,y=mpg,color=am)) +
+# mod1: with lines and ribbons
+mod1_ci_df %>%
+  #put x, y, and color in ggplot()
+  ggplot(aes(x=disp,y=mpg,color=am)) +
+  #separate points for labeling
+  geom_point(data=~filter(.x,am==0),aes(color="am = 0")) +
+  geom_point(data=~filter(.x,am==1),aes(color ="am = 1")) +
+  #separate lines for labeling
   geom_line(data=~filter(.x,am==0),
-            aes(x=disp,y=fit,color=am)) +
+            aes(x=disp,y=fit,color="model: am=0")) +
   geom_line(data=~filter(.x,am==1),
-            aes(x=disp,y=fit,color=am)) +
-  scale_color_viridis_d(end=0.7) -> plot1
+            aes(x=disp,y=fit,color="model: am=1")) +
+  #separate CIs for labeling
+  geom_ribbon(data=~filter(.x,am==0),
+              aes(x=disp,ymin=lwr,ymax=upr,color="ci: am = 0"),
+              fill="gray50",
+              alpha=0.2) +
+  geom_ribbon(data=~filter(.x,am==1),
+              aes(x=disp,ymin=lwr,ymax=upr,color="ci: am = 1"),
+              fill="gray50",
+              alpha=0.2) +
+  #manually apply viridis scale
+  scale_color_manual(values=c(viridis(2,end=0.7),rep("gray50",2),viridis(2,end=0.7)),
+                     guide=guide_legend(title="Legend")) +
+  theme_bw() -> plot1
 
-x<-2
+ggplotly(plot1)
 
-if(x==2){
-  plot1 +
-    geom_ribbon(data=~filter(.x,am==0),
-                aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
-    geom_ribbon(data=~filter(.x,am==1),
-                aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) -> plot2
-} else{plot2 <- plot1}
+# mod1: add lines and bands separately
+#with lines
+mod1_ci_df %>%
+  #put x, y, and color in ggplot()
+  ggplot(aes(x=disp,y=mpg,color=am)) +
+  #separate points for labeling
+  geom_point(data=~filter(.x,am==0),aes(color="am = 0")) +
+  geom_point(data=~filter(.x,am==1),aes(color ="am = 1")) +
+  #separate lines for labeling
+  geom_line(data=~filter(.x,am==0),
+            aes(x=disp,y=fit,color="model: am=0")) +
+  geom_line(data=~filter(.x,am==1),
+            aes(x=disp,y=fit,color="model: am=1")) +
+  #manually apply viridis scale
+  scale_color_manual(values=c(viridis(2,end=0.7),viridis(2,end=0.7)),
+                     guide=guide_legend(title="Legend")) +
+  theme_bw() -> plot1a
 
-plot2
+#add CI bands
+plot1a +
+  #separate CIs for labeling
+  geom_ribbon(data=~filter(.x,am==0),
+              aes(x=disp,ymin=lwr,ymax=upr,color="ci: am = 0"),
+              fill="gray50",
+              alpha=0.2) +
+  geom_ribbon(data=~filter(.x,am==1),
+              aes(x=disp,ymin=lwr,ymax=upr,color="ci: am = 1"),
+              fill="gray50",
+              alpha=0.2) +
+  #manually apply viridis scale
+  scale_color_manual(values=c(viridis(2,end=0.7),rep("gray50",2),viridis(2,end=0.7)),
+                     guide=guide_legend(title="Legend")) -> plot1b
+
+
+
+ggplotly(plot1b)
+
+
+
 
 
 # mod2_ci_df %>%

@@ -3,7 +3,7 @@
 
 
 #load packages
-pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom)
+pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom,viridisLite,shinyjs)
 
 
 #load data
@@ -31,6 +31,8 @@ mod_choices=c("No model"="mod0",
 
 #### Define UI 
 ui <- fluidPage(
+  ### Activate shinyjs
+  useShinyjs(),
   
   ### CSS to make horizontal line thicker
   tags$head(
@@ -43,18 +45,28 @@ ui <- fluidPage(
   #### Sidebar panel layout
   sidebarLayout(
     sidebarPanel(width=2,
+      ## Numerical variable selector
       selectInput("sel_num","Select a continuous variable",
                   choices=mtcars %>%
                     select(where(is.numeric),-mpg) %>%
                     names()),
+      ## Categorical (binary) variable selector
       selectInput("sel_cat","Select a binary variable",
                   choices=mtcars %>%
                     select(where(is.factor)) %>%
                     names()),
       br(),
+      br(),
+      br(),
+      ### Radio buttons to select regression model
       radioButtons("rad_mod","Select regression model",
                    choices=mod_choices,
-                   selected="mod0")
+                   selected="mod0"),
+      br(),
+      ### Radio buttons to choose whether to display CIs (connected to toggle())
+      radioButtons("rad_ci","Add confidence intervals to model",
+                   choices=c("No","Yes"),
+                   selected="No")
       # checkboxGroupInput("chkGrp_ancova","Run ANCOVA on",
       #                    choices=paste0("Mod",1:6),
       #                    inline=TRUE)
@@ -160,6 +172,11 @@ server <- function(input, output, session) {
   })
 
   
+  ### Update rad_ci radioButtons
+  observe({
+    toggle(id = "rad_ci", condition=input$rad_mod %in% paste0("mod",1:6))
+  })
+  
   
   ### Generate scatter plot and regression lines
   output$scatter_plot <- renderPlotly({
@@ -174,34 +191,7 @@ server <- function(input, output, session) {
             plot.title=element_text(size=12)) -> p1
     
     #dynamically add regression lines
-    #if model 1:4 selected
-    if(input$rad_mod %in% paste0("mod",1:4)) {
-      p1 +
-        geom_line(data=~filter(.x,!!sym(input$sel_cat)==0),
-                  aes(x=!!sym(input$sel_num),y=fit,color=!!sym(input$sel_cat))) +
-        geom_line(data=~filter(.x,!!sym(input$sel_cat)==1),
-                  aes(x=!!sym(input$sel_num),y=fit,color=!!sym(input$sel_cat))) -> p2
-    }
-    
-    #if model 5 selected (no effect of binary variable)
-    if(input$rad_mod=="mod5"){
-      p1 +
-        #set color to blue
-        geom_line(aes(x=!!sym(input$sel_num),y=fit),col="blue") -> p2
-    }
-
-    #if null model selected
-    if(input$rad_mod=="mod6"){
-       p1 +
-        #use default color black
-        geom_line(aes(x=!!sym(input$sel_num),y=fit)) -> p2
-    }
-    
-    #if no model selected
-    if(input$rad_mod=="mod0"){
-      p1->p2
-    }
-    p2
+    p2<-add_reg_lines(p1,input$rad_mod,input$sel_num,input$sel_cat)
     
     #add plotly specifications
     ggplotly(p2) %>%
@@ -211,31 +201,20 @@ server <- function(input, output, session) {
              legend=list(orientation="v",yanchor="center",x=1.02,y=.5)) -> pltly1
 
       #if...else contingent upon whether model is selected
-      # if(!is.null(input$rad_mod)) {
       if(input$rad_mod %in% paste0("mod",1:6)) {
         pltly1 %>%
           #if so, then model equation added as caption
           layout(annotations=list(x=0,y=-.35,showarrow=F,xref="paper",yref="paper",
                               xanchor="left",yanchor="auto",xshift=0,yshift=0,
-                              text=paste("Overall model:",get_formula(model())),
-                              font=list(size=13))) -> pltly2
+                              text=paste0("Overall model:"," \n", get_formula(model())),
+                              align="left",font=list(size=13))) -> pltly2
       }
-    else{pltly1 -> pltly2}
-    pltly2
+      else{pltly1 -> pltly2}
+      pltly2
 
     })
     
-    
-    
-    
-      # geom_line(data=~filter(.x,am==0),
-      #           aes(x=disp,y=fit,color=am)) +
-      # geom_line(data=~filter(.x,am==1),
-      #           aes(x=disp,y=fit,color=am)) +
-      # scale_color_viridis_d(end=0.7) -> plot1
 
-    
-  
   
   # ## ANCOVA 
   # # With interaction
@@ -325,22 +304,23 @@ shinyApp(ui = ui, server = server)
 
 # later for ANCOVA analysis, have user choose manual or automated
 # remove reg line(s) (radio button) once a variable (num or cat/bin) is changed--> return to "No model"--isolate?
+# replace br()s with function--see spaceship titanic
+# be able to display/hide reg lines for mods 5 and 6 via plotly
 
-# 1) develop function to easily and dynamically add regression lines with built-in if....else statements & then adjust app code
+
 # 2) add input to display CI/PI bars (as geom_ribbon)--maybe a 3-choice, in-line set of radio buttons
 
 
 ## DONE
-# enabled "no model" selection to generate a model() DF
-# developed function to combine model preds and data to generate new reactive object
-# used new approach to output plot and reg lines
-
+# developed function to dynamically add regression lines to plots
+# add conditional UI: updates radio button choices from "No" to c("No","Yes") if mod1-6 selected
+# developed backbone code to incrementally display reg mods and ci bands
 
 
 ## LAST COMMIT
-# added color as a column to regression line by group table
-# added a "No model" option (that displays only points) and adjusted downstream code
-# began developing backbone code to add CIs and conditionally add lines to plot
+# enabled "no model" selection to generate a model() DF
+# developed function to combine model preds and data to generate new reactive object
+# used new approach to output plot and reg lines
 
 
 
