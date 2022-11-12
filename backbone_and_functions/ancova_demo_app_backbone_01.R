@@ -147,6 +147,21 @@ mod2_ci %>%
   bind_cols(mtcars %>%
               select(disp,am,mpg)) -> mod2_ci_df
 
+# Alternatively
+mtcars %>%
+  select(disp,am,mpg) %>%
+  bind_cols(mod2_ci %>%
+              as_tibble()) -> mod2_ci_df
+
+# Third way
+x<-2
+
+mtcars %>%
+  select(disp,am,mpg) %>%
+  {if(x==2) bind_cols(.,mod2_ci %>%
+                        as_tibble) else .} 
+
+
 ## Plot
 mod2_ci_df %>%
   ggplot() +
@@ -155,24 +170,31 @@ mod2_ci_df %>%
             aes(x=disp,y=fit,color=am)) +
   geom_line(data=~filter(.x,am==1),
             aes(x=disp,y=fit,color=am)) +
-  geom_ribbon(data=~filter(.x,am==0),
-              aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
-  geom_ribbon(data=~filter(.x,am==1),
-              aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
-  scale_color_viridis_d(end=0.7)
+  scale_color_viridis_d(end=0.7) -> plot1
 
 x<-2
 
-mod2_ci_df %>%
-  ggplot() +
-  geom_point(aes(x=disp,y=mpg,color=am)) +
-  {if(x==1) (geom_line(data=~filter(.x,am==0),aes(x=disp,y=fit,color=am)) +) else .+} 
-  {if(x==2) geom_line(data=~filter(.x,am==1),aes(x=disp,y=fit,color=am)) + else .+} +
-  geom_ribbon(data=~filter(.x,am==0),
-              aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
-  geom_ribbon(data=~filter(.x,am==1),
-              aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
-  scale_color_viridis_d(end=0.7)
+if(x==2){
+  plot1 +
+    geom_ribbon(data=~filter(.x,am==0),
+                aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
+    geom_ribbon(data=~filter(.x,am==1),
+                aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) -> plot2
+} else{plot2 <- plot1}
+
+plot2
+
+
+# mod2_ci_df %>%
+#   ggplot() +
+#   geom_point(aes(x=disp,y=mpg,color=am)) +
+#   {if(x==1) (geom_line(data=~filter(.x,am==0),aes(x=disp,y=fit,color=am)) +) else .+} 
+#   {if(x==2) geom_line(data=~filter(.x,am==1),aes(x=disp,y=fit,color=am)) + else .+} +
+#   geom_ribbon(data=~filter(.x,am==0),
+#               aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
+#   geom_ribbon(data=~filter(.x,am==1),
+#               aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
+#   scale_color_viridis_d(end=0.7)
   
             
             

@@ -3,7 +3,7 @@
 
 
 #load packages
-pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom,viridisLite)
+pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom)
 
 
 #load data
@@ -20,7 +20,7 @@ source(here("backbone_and_functions","ancova_demo_app_func_01.R"))
 
 
 #create model choices object
-mod_choices=c("No model",
+mod_choices=c("No model"="mod0",
               "Mod1: Full, interactive"="mod1",
               "Mod2: Full, additive"="mod2",
               "Mod3: Different slopes, common intercept" = "mod3",
@@ -54,7 +54,7 @@ ui <- fluidPage(
       br(),
       radioButtons("rad_mod","Select regression model",
                    choices=mod_choices,
-                   selected="No model"),
+                   selected="mod0")
       # checkboxGroupInput("chkGrp_ancova","Run ANCOVA on",
       #                    choices=paste0("Mod",1:6),
       #                    inline=TRUE)
@@ -76,13 +76,14 @@ ui <- fluidPage(
       #add horizontal line
       hr(),
       #interactive plot
-      h3(strong("Scatter Plot")),
       fluidRow(
         column(7,
+          h3(strong("Scatter Plot")),
           plotlyOutput("scatter_plot",height="500px")
         ),
         #full model output
         column(2,
+          htmlOutput("model_subtitle"),
           tableOutput("mod1_tab"),
           br(),
           tableOutput("mod2_tab_wGroup")
@@ -130,10 +131,13 @@ server <- function(input, output, session) {
   )
 
   
-  ### Create reactive model object
+  ### Create reactive objects
+  ## model object
   model<-reactive({
-    req(input$rad_mod)
+    # req(input$rad_mod %in% paste0("mod",1:6))
     switch(input$rad_mod,
+           #note: if no model selected, model() is a data frame
+           mod0=mtcars,
            mod1=mtcars %>%
              lm(paste0("mpg","~",input$sel_cat,"*",input$sel_num) %>% as.formula(),data=.),
            mod2=mtcars %>%
@@ -150,10 +154,17 @@ server <- function(input, output, session) {
   })
   
   
-  ### Output scatterplot
-  ## ggplot (scatter plot colored by binary variable)
+  ## Use model() to generate predictions and combine with selected data
+  pred_dat<-reactive({
+    combine_dat_fit(model(),mtcars,input$sel_num,input$sel_cat)
+  })
+
+  
+  
+  ### Generate scatter plot and regression lines
   output$scatter_plot <- renderPlotly({
-    mtcars %>%
+    #create scatter plot using combined pred-dat reactive object
+    pred_dat() %>%
       ggplot(aes(label=model)) +
       geom_point(aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat)),size=2,alpha=0.7) +
       expand_limits(x=c(0,NA),y=c(0,NA)) +
@@ -161,51 +172,44 @@ server <- function(input, output, session) {
       theme_bw() +
       theme(text=element_text(size=16),
             plot.title=element_text(size=12)) -> p1
-
-    ## add line segments using model selected
-    if(input$rad_mod %in% paste0("mod",1:6)) {
-      #if model 1:4 selected
-      if(input$rad_mod %in% paste0("mod",1:4)) {
-        range1<-find_range(mtcars,FALSE,input$sel_num,input$sel_cat,0,model())
-        range2<-find_range(mtcars,FALSE,input$sel_num,input$sel_cat,1,model())
     
-        p1 +
-          #specify viridis color values to match data points (from scale_color_viridis_d above)
-          segment_line(range1,col=viridis(1,option="D",begin=0,end=0)) +
-          segment_line(range2,col=viridis(1,option="D",begin=0.7,end=0.7)) -> p2
-      }
-      
-      #if model 5 selected (no effect of binary variable)
-      if(input$rad_mod=="mod5"){
-        range<-find_range(mtcars,FALSE,num=input$sel_num,lm=model())
+    #dynamically add regression lines
+    #if model 1:4 selected
+    if(input$rad_mod %in% paste0("mod",1:4)) {
+      p1 +
+        geom_line(data=~filter(.x,!!sym(input$sel_cat)==0),
+                  aes(x=!!sym(input$sel_num),y=fit,color=!!sym(input$sel_cat))) +
+        geom_line(data=~filter(.x,!!sym(input$sel_cat)==1),
+                  aes(x=!!sym(input$sel_num),y=fit,color=!!sym(input$sel_cat))) -> p2
+    }
     
-        p1 +
-          #set color to blue
-          segment_line(range,col="blue") -> p2
-      }
-      
-      #if null model selected
-      if(input$rad_mod=="mod6"){
-        range<-find_range(mtcars,TRUE,num=input$sel_num,lm=model())
-    
-        p1 +
-          #use default color black
-          segment_line(range) -> p2
-      }
-    
+    #if model 5 selected (no effect of binary variable)
+    if(input$rad_mod=="mod5"){
+      p1 +
+        #set color to blue
+        geom_line(aes(x=!!sym(input$sel_num),y=fit),col="blue") -> p2
     }
 
-    else{p1->p2}
+    #if null model selected
+    if(input$rad_mod=="mod6"){
+       p1 +
+        #use default color black
+        geom_line(aes(x=!!sym(input$sel_num),y=fit)) -> p2
+    }
     
+    #if no model selected
+    if(input$rad_mod=="mod0"){
+      p1->p2
+    }
+    p2
     
-    
-    ## turn ggplot object into a plotly
+    #add plotly specifications
     ggplotly(p2) %>%
       #set deep bottom margin
       layout(margin=list(b=160),
              #put legend centered on right of plot
              legend=list(orientation="v",yanchor="center",x=1.02,y=.5)) -> pltly1
-    
+
       #if...else contingent upon whether model is selected
       # if(!is.null(input$rad_mod)) {
       if(input$rad_mod %in% paste0("mod",1:6)) {
@@ -218,11 +222,19 @@ server <- function(input, output, session) {
       }
     else{pltly1 -> pltly2}
     pltly2
-    
-  })
-  
-  
 
+    })
+    
+    
+    
+    
+      # geom_line(data=~filter(.x,am==0),
+      #           aes(x=disp,y=fit,color=am)) +
+      # geom_line(data=~filter(.x,am==1),
+      #           aes(x=disp,y=fit,color=am)) +
+      # scale_color_viridis_d(end=0.7) -> plot1
+
+    
   
   
   # ## ANCOVA 
@@ -242,6 +254,13 @@ server <- function(input, output, session) {
   
   
   ### Linear models
+  ## Display of subtitle
+  output$model_subtitle<-renderUI({
+    req(input$rad_mod %in% paste0("mod",1:6))
+    HTML("<b><h3>Model Info</b></h3>")
+  })
+  
+  
   ## Display table of full model
   output$mod1_tab<-renderTable({
     req(input$rad_mod %in% paste0("mod",1:6))
@@ -260,7 +279,7 @@ server <- function(input, output, session) {
     #run function
     pull_param(model(),input$sel_num,input$sel_cat)},
     striped=TRUE,hover=TRUE,
-    caption="Regressions line by group",
+    caption="Regression lines by group",
     caption.placement=getOption("xtable.caption.placement","top"))
 
   
@@ -303,23 +322,25 @@ shinyApp(ui = ui, server = server)
 
 ## NEXT
 # add more summary stats
-# add checkbox to display CI/PI bars (as geom_ribbon)
-# perhaps create another dropdown box to allow user to select only points of a specfic value of am/vs (or both)
+
 # later for ANCOVA analysis, have user choose manual or automated
 # remove reg line(s) (radio button) once a variable (num or cat/bin) is changed--> return to "No model"--isolate?
-# reconsider "engine" for generating fitted lines--use predict instead? this will make it much easier to display lines and will work 
-  # with plotly better
+
+# 1) develop function to easily and dynamically add regression lines with built-in if....else statements & then adjust app code
+# 2) add input to display CI/PI bars (as geom_ribbon)--maybe a 3-choice, in-line set of radio buttons
 
 
 ## DONE
-# added color as a column to regression line by group table
-# added a "No model" option (that displays only points) and adjusted downstream code
-# began developing backbone code to add CIs and conditionally add lines to plot
+# enabled "no model" selection to generate a model() DF
+# developed function to combine model preds and data to generate new reactive object
+# used new approach to output plot and reg lines
+
 
 
 ## LAST COMMIT
-# created function and add app code to extract regression line information from larger models and
-#display as a second table for mods 1-4
+# added color as a column to regression line by group table
+# added a "No model" option (that displays only points) and adjusted downstream code
+# began developing backbone code to add CIs and conditionally add lines to plot
 
 
 
