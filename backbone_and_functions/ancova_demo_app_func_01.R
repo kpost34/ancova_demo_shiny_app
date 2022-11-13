@@ -109,36 +109,62 @@ combine_dat_fit<-function(mod,data,num,cat){
   
   data %>%
     #choose num, cat, and dep vars
-    select(model,!!sym(num),!!sym(cat),mpg) %>%
+    select(car,!!sym(num),!!sym(cat),mpg) %>%
     #if type set to TRUE, then fit model and CI added to DF
-    {if(type) bind_cols(.,predict(mod,data,interval="confidence") %>% as_tibble) else .} 
+    {if(type) bind_cols(.,predict(mod,data,interval="confidence") %>% 
+                          as_tibble %>%
+                          mutate(across(fit:upr,~signif(.x,4)))) else .} 
 }
 
 
 
 #### Function to add regression lines to plot=======================================================
 add_reg_lines<-function(plot_obj,mod_num,num,cat){
+  
+  
   #if models 1-4 selected, add separate line for each cat level
   if(mod_num %in% paste0("mod",1:4)) {
     plot_obj +
       geom_line(data=~filter(.x,!!sym(cat)==0),
-                aes(x=!!sym(num),y=fit,color=!!sym(cat))) +
+                aes(x=!!sym(num),y=fit,color=paste0("model: ",cat," = 0"),
+                    text=paste0(
+                      "\n",num,": ",!!sym(num),
+                      "\n","fit",": ",fit,
+                      "\n",cat,": ",!!sym(cat))),
+                group=1) +
       geom_line(data=~filter(.x,!!sym(cat)==1),
-                aes(x=!!sym(num),y=fit,color=!!sym(cat))) 
+                aes(x=!!sym(num),y=fit,color=paste0("model: ",cat," = 1"),
+                    text=paste0(
+                      "\n",num,": ",!!sym(num),
+                      "\n","fit",": ",fit,
+                      "\n",cat,": ",!!sym(cat))),
+                group=2) +
+      scale_color_manual(values=c(viridis(2,end=0.7),viridis(2,end=0.7)),
+                         guide=guide_legend(title="Legend"))
   }
   
   #if model 5 selected (no effect of binary variable), add one regression line
   else if(mod_num=="mod5"){
     plot_obj +
-      #set color to blue
-      geom_line(aes(x=!!sym(num),y=fit),col="blue") 
+      geom_line(aes(x=!!sym(num),y=fit,color="model",
+                    text=paste0(
+                      "\n",num,": ",!!sym(num),
+                      "\n","fit",": ",fit)),
+                group=3) +
+      scale_color_manual(values=c("blue",viridis(2,end=0.7)),
+                         guide=guide_legend(title="Legend"))
   }
   
   #if null model selected, add horizontal line at mean y
   else if(mod_num=="mod6"){
     plot_obj +
-      #use default color black
-      geom_line(aes(x=!!sym(num),y=fit)) 
+      geom_line(aes(x=!!sym(num),y=fit,color="model",
+                    text=paste0(
+                      "\n",num,": ",!!sym(num),
+                      "\n","fit",": ",fit)),
+                group=3) +
+      scale_color_manual(values=c("black", viridis(2,end=0.7)),
+                         guide=guide_legend(title="Legend")) 
   }
   
   #if no model selected, no line is added

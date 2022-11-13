@@ -10,7 +10,7 @@ pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom,viridisLite,shinyjs)
 data(mtcars)
 
 #wrangle data
-mtcars<-as_tibble(mtcars,rownames="model") %>%
+mtcars<-as_tibble(mtcars,rownames="car") %>%
   select(-c(cyl,gear,carb)) %>%
   mutate(across(c(vs,am),~as.factor(.x)))
 
@@ -170,6 +170,15 @@ server <- function(input, output, session) {
   pred_dat<-reactive({
     combine_dat_fit(model(),mtcars,input$sel_num,input$sel_cat)
   })
+  
+  
+  ## Tooltip labels
+  # Point
+  
+  
+  # Line
+  
+  # Band
 
   
   ### Update rad_ci radioButtons
@@ -181,24 +190,88 @@ server <- function(input, output, session) {
   ### Generate scatter plot and regression lines
   output$scatter_plot <- renderPlotly({
     #create scatter plot using combined pred-dat reactive object
+    # pred_dat() %>%
+    #   ggplot(aes(label=model)) +
+    #   geom_point(aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat)),size=2,alpha=0.7) +
+    #   expand_limits(x=c(0,NA),y=c(0,NA)) +
+    #   scale_color_viridis_d(end=0.7) +
+    #   theme_bw() +
+    #   theme(text=element_text(size=16),
+    #         plot.title=element_text(size=12)) -> p1
+    
+    
+    # pred_dat() %>%
+    #   ggplot(aes(label=model,x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat))) +
+    #   geom_point(data=~filter(.x,!!sym(input$sel_cat)==0),
+    #              aes(color= paste(input$sel_cat,0,sep=" = "))) +
+    #   geom_point(data=~filter(.x,!!sym(input$sel_cat)==1),
+    #              aes(color= paste(input$sel_cat,1,sep=" = "))) +
+    #   expand_limits(x=c(0,NA),y=c(0,NA)) +
+    #   theme_bw() +
+    #   theme(text=element_text(size=12),
+    #         plot.title=element_text(size=10)) +
+    #   scale_color_manual(values=viridis(2,end=0.7),
+    #                      guide=guide_legend(title="Legend")) -> p1
+    
+    # point_label<-paste0(model,
+    #                     "\n",input$sel_num,": ",!!sym(input$sel_num),
+    #                     "\n","mpg",": ",mpg,
+    #                     "\n",input$sel_cat,": ",!!sym(input$sel_cat))
+    
+    # pred_dat() %>%
+    #   ggplot(aes(label=car,x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat))) +
+    #   geom_point(data=~filter(.x,!!sym(input$sel_cat)==0),
+    #              aes(color= paste(input$sel_cat,0,sep=" = "),
+    #                  text=paste0(car,
+    #                              "\n",input$sel_num,": ",!!sym(input$sel_num),
+    #                              "\n","mpg",": ",mpg,
+    #                              "\n",input$sel_cat,": ",!!sym(input$sel_cat)))) +
+    #   geom_point(data=~filter(.x,!!sym(input$sel_cat)==1),
+    #              aes(color= paste(input$sel_cat,1,sep=" = "),
+    #                  text=paste0(car,
+    #                              "\n",input$sel_num,": ",!!sym(input$sel_num),
+    #                              "\n","mpg",": ",mpg,
+    #                              "\n",input$sel_cat,": ",!!sym(input$sel_cat)))) +
+    #   expand_limits(x=c(0,NA),y=c(0,NA)) +
+    #   theme_bw() +
+    #   theme(text=element_text(size=12),
+    #         plot.title=element_text(size=10)) +
+    #   scale_color_manual(values=viridis(2,end=0.7),
+    #                      guide=guide_legend(title="Legend")) -> p1
+    
+    
     pred_dat() %>%
-      ggplot(aes(label=model)) +
-      geom_point(aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat)),size=2,alpha=0.7) +
+      ggplot(aes(label=car,x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat))) +
+      geom_point(data=~filter(.x,!!sym(input$sel_cat)==0),
+                 aes(color= paste(input$sel_cat,0,sep=" = "),
+                     text=paste0(car,
+                          "\n",input$sel_num,": ",!!sym(input$sel_num),
+                          "\n","mpg",": ",mpg,
+                          "\n",input$sel_cat,": ",!!sym(input$sel_cat))),
+                 group=1) +
+      geom_point(data=~filter(.x,!!sym(input$sel_cat)==1),
+                 aes(color= paste(input$sel_cat,1,sep=" = "),
+                     text=paste0(car,
+                     "\n",input$sel_num,": ",!!sym(input$sel_num),
+                     "\n","mpg",": ",mpg,
+                     "\n",input$sel_cat,": ",!!sym(input$sel_cat))),
+                    group=2) +
       expand_limits(x=c(0,NA),y=c(0,NA)) +
-      scale_color_viridis_d(end=0.7) +
       theme_bw() +
-      theme(text=element_text(size=16),
-            plot.title=element_text(size=12)) -> p1
+      theme(text=element_text(size=12),
+            plot.title=element_text(size=10)) +
+      scale_color_manual(values=viridis(2,end=0.7),
+                         guide=guide_legend(title="Legend")) -> p1
     
     #dynamically add regression lines
-    p2<-add_reg_lines(p1,input$rad_mod,input$sel_num,input$sel_cat)
+    p2<-add_reg_lines(p1,mod_num=input$rad_mod,num=input$sel_num,cat=input$sel_cat)
     
     #add plotly specifications
-    ggplotly(p2) %>%
+    ggplotly(p2,tooltip="text") %>%
       #set deep bottom margin
       layout(margin=list(b=160),
              #put legend centered on right of plot
-             legend=list(orientation="v",yanchor="center",x=1.02,y=.5)) -> pltly1
+             legend=list(orientation="v",yanchor="top",x=1.02,y=1)) -> pltly1
 
       #if...else contingent upon whether model is selected
       if(input$rad_mod %in% paste0("mod",1:6)) {
@@ -301,26 +374,27 @@ shinyApp(ui = ui, server = server)
 
 ## NEXT
 # add more summary stats
-
 # later for ANCOVA analysis, have user choose manual or automated
-# remove reg line(s) (radio button) once a variable (num or cat/bin) is changed--> return to "No model"--isolate?
 # replace br()s with function--see spaceship titanic
-# be able to display/hide reg lines for mods 5 and 6 via plotly
+# create a tooltip text function
+# set tooltip to display regression lines (and later ci bands)
+# apply signif to CI bands
 
 
 # 2) add input to display CI/PI bars (as geom_ribbon)--maybe a 3-choice, in-line set of radio buttons
 
 
 ## DONE
-# developed function to dynamically add regression lines to plots
-# add conditional UI: updates radio button choices from "No" to c("No","Yes") if mod1-6 selected
-# developed backbone code to incrementally display reg mods and ci bands
+# updated function add_reg_lines to add separate points and lines to plotly
+# changed field 'model' to 'car' to reduce confusion
+# 'signifed' fit, upr, and lwr to 4 sigfigs
+# corrected info displayed in tooltip for points and reg lines
 
 
 ## LAST COMMIT
-# enabled "no model" selection to generate a model() DF
-# developed function to combine model preds and data to generate new reactive object
-# used new approach to output plot and reg lines
+# developed function to dynamically add regression lines to plots
+# add conditional UI: updates radio button choices from "No" to c("No","Yes") if mod1-6 selected
+# developed backbone code to incrementally display reg mods and ci bands
 
 
 

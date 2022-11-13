@@ -1,8 +1,9 @@
 #Created by Keith Post on 11/6/22
 #Backbone code for ANCOVA Demo App
 
-mtcars<-as_tibble(mtcars)
-mtcars$am<-as.factor(mtcars$am)
+mtcars<-as_tibble(mtcars,rownames="car") %>%
+  select(-c(cyl,gear,carb)) %>%
+  mutate(across(c(vs,am),~as.factor(.x)))
 
 #### Create models==================================================================================
 mod1<-lm(mpg~am*disp,data=mtcars)
@@ -144,6 +145,9 @@ predict(mod1,newdata=mtcars,interval="confidence") -> mod1_ci
 # mod5
 predict(mod5,newdata=mtcars,interval="confidence") -> mod5_ci
 
+# mod6
+predict(mod6,newdata=mtcars,interval="confidence") -> mod6_ci
+
 ## Join with data
 # mod1
 mod1_ci %>%
@@ -157,21 +161,11 @@ mod5_ci %>%
   bind_cols(mtcars %>%
               select(disp,am,mpg)) -> mod5_ci_df
 
-## Alternatively
-# mod1
-mtcars %>%
-  select(disp,am,mpg) %>%
-  bind_cols(mod1_ci %>%
-              as_tibble()) -> mod1_ci_df
-
-## Third way
-# mod1
-x<-2
-
-mtcars %>%
-  select(disp,am,mpg) %>%
-  {if(x==2) bind_cols(.,mod2_ci %>%
-                        as_tibble) else .} 
+# mod6
+mod6_ci %>%
+  as_tibble() %>%
+  bind_cols(mtcars %>%
+              select(disp,am,mpg)) -> mod6_ci_df
 
 
 ## Plot
@@ -199,18 +193,27 @@ mod1_ci_df %>%
   #manually apply viridis scale
   scale_color_manual(values=c(viridis(2,end=0.7),rep("gray50",2),viridis(2,end=0.7)),
                      guide=guide_legend(title="Legend")) +
-  theme_bw() -> plot1
+  theme_bw() -> plot1 
 
 ggplotly(plot1)
 
 # mod1: add lines and bands separately
-#with lines
+#start with points
 mod1_ci_df %>%
   #put x, y, and color in ggplot()
-  ggplot(aes(x=disp,y=mpg,color=am)) +
+  ggplot(aes(x=disp,y=mpg,color=am)) + 
   #separate points for labeling
-  geom_point(data=~filter(.x,am==0),aes(color="am = 0")) +
+  geom_point(data=~filter(.x,am==0),aes(color= "am = 0")) +
   geom_point(data=~filter(.x,am==1),aes(color ="am = 1")) +
+  theme_bw() +
+  scale_color_manual(values=viridis(2,end=0.7),
+                     guide=guide_legend(title="Legend")) -> plot1a
+
+ggplotly(plot1a)
+  
+  
+#add lines
+plot1a +
   #separate lines for labeling
   geom_line(data=~filter(.x,am==0),
             aes(x=disp,y=fit,color="model: am=0")) +
@@ -218,11 +221,12 @@ mod1_ci_df %>%
             aes(x=disp,y=fit,color="model: am=1")) +
   #manually apply viridis scale
   scale_color_manual(values=c(viridis(2,end=0.7),viridis(2,end=0.7)),
-                     guide=guide_legend(title="Legend")) +
-  theme_bw() -> plot1a
+                     guide=guide_legend(title="Legend")) -> plot1b
+
+ggplotly(plot1b)
 
 #add CI bands
-plot1a +
+plot1b +
   #separate CIs for labeling
   geom_ribbon(data=~filter(.x,am==0),
               aes(x=disp,ymin=lwr,ymax=upr,color="ci: am = 0"),
@@ -234,11 +238,88 @@ plot1a +
               alpha=0.2) +
   #manually apply viridis scale
   scale_color_manual(values=c(viridis(2,end=0.7),rep("gray50",2),viridis(2,end=0.7)),
-                     guide=guide_legend(title="Legend")) -> plot1b
+                     guide=guide_legend(title="Legend")) -> plot1c
+
+
+ggplotly(plot1c)
+
+
+# mod5: add lines and bands incrementally
+#start with points
+mod5_ci_df %>%
+  #put x, y, and color in ggplot()
+  ggplot(aes(x=disp,y=mpg,color=am)) + 
+  #separate points for labeling
+  geom_point(data=~filter(.x,am==0),aes(color= "am = 0")) +
+  geom_point(data=~filter(.x,am==1),aes(color ="am = 1")) +
+  theme_bw() +
+  scale_color_manual(values=viridis(2,end=0.7),
+                     guide=guide_legend(title="Legend")) -> plot5a
+
+ggplotly(plot5a)
+
+
+#add lines
+plot5a +
+  #separate lines for labeling
+  geom_line(aes(x=disp,y=fit,color="model")) +
+  #manually apply viridis scale
+  scale_color_manual(values=c(viridis(2,end=0.7),"blue"),
+                     guide=guide_legend(title="Legend")) -> plot5b
+
+ggplotly(plot5b)
+
+#add CI bands
+plot5b +
+  #separate CIs for labeling
+  geom_ribbon(aes(x=disp,ymin=lwr,ymax=upr,color="ci"),
+              fill="gray50",
+              alpha=0.2) +
+  #manually apply viridis scale
+  scale_color_manual(values=c(viridis(2,end=0.7),"gray50","blue"),
+                     guide=guide_legend(title="Legend")) -> plot5c
+
+ggplotly(plot5c)
 
 
 
-ggplotly(plot1b)
+# mod6: add lines and bands incrementally
+#start with points
+mod6_ci_df %>%
+  #put x, y, and color in ggplot()
+  ggplot(aes(x=disp,y=mpg,color=am)) + 
+  #separate points for labeling
+  geom_point(data=~filter(.x,am==0),aes(color= "am = 0")) +
+  geom_point(data=~filter(.x,am==1),aes(color ="am = 1")) +
+  theme_bw() +
+  scale_color_manual(values=viridis(2,end=0.7),
+                     guide=guide_legend(title="Legend")) -> plot6a
+
+ggplotly(plot6a)
+
+
+#add lines
+plot6a +
+  #separate lines for labeling
+  geom_line(aes(x=disp,y=fit,color="model")) +
+  #manually apply viridis scale
+  scale_color_manual(values=c(viridis(2,end=0.7),"black"),
+                     guide=guide_legend(title="Legend")) -> plot6b
+
+ggplotly(plot6b)
+
+#add CI bands
+plot6b +
+  #separate CIs for labeling
+  geom_ribbon(aes(x=disp,ymin=lwr,ymax=upr,color="ci"),
+              fill="gray50",
+              alpha=0.2) +
+  #manually apply viridis scale
+  scale_color_manual(values=c(viridis(2,end=0.7),"gray50","black"),
+                     guide=guide_legend(title="Legend")) -> plot6c
+
+ggplotly(plot6c)
+
 
 
 
