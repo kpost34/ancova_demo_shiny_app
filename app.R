@@ -64,7 +64,7 @@ ui <- fluidPage(
                    selected="mod0"),
       br(),
       ### Radio buttons to choose whether to display CIs (connected to toggle())
-      radioButtons("rad_ci","Add confidence intervals to model",
+      radioButtons("rad_ci","Add confidence interval(s) to model?",
                    choices=c("No","Yes"),
                    selected="No")
       # checkboxGroupInput("chkGrp_ancova","Run ANCOVA on",
@@ -89,9 +89,9 @@ ui <- fluidPage(
       hr(),
       #interactive plot
       fluidRow(
-        column(7,
+        column(8,
           h3(strong("Scatter Plot")),
-          plotlyOutput("scatter_plot",height="500px")
+          plotlyOutput("scatter_plot",height="550px")
         ),
         #full model output
         column(2,
@@ -171,14 +171,6 @@ server <- function(input, output, session) {
     combine_dat_fit(model(),mtcars,input$sel_num,input$sel_cat)
   })
   
-  
-  ## Tooltip labels
-  # Point
-  
-  
-  # Line
-  
-  # Band
 
   
   ### Update rad_ci radioButtons
@@ -189,57 +181,8 @@ server <- function(input, output, session) {
   
   ### Generate scatter plot and regression lines
   output$scatter_plot <- renderPlotly({
+    
     #create scatter plot using combined pred-dat reactive object
-    # pred_dat() %>%
-    #   ggplot(aes(label=model)) +
-    #   geom_point(aes(x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat)),size=2,alpha=0.7) +
-    #   expand_limits(x=c(0,NA),y=c(0,NA)) +
-    #   scale_color_viridis_d(end=0.7) +
-    #   theme_bw() +
-    #   theme(text=element_text(size=16),
-    #         plot.title=element_text(size=12)) -> p1
-    
-    
-    # pred_dat() %>%
-    #   ggplot(aes(label=model,x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat))) +
-    #   geom_point(data=~filter(.x,!!sym(input$sel_cat)==0),
-    #              aes(color= paste(input$sel_cat,0,sep=" = "))) +
-    #   geom_point(data=~filter(.x,!!sym(input$sel_cat)==1),
-    #              aes(color= paste(input$sel_cat,1,sep=" = "))) +
-    #   expand_limits(x=c(0,NA),y=c(0,NA)) +
-    #   theme_bw() +
-    #   theme(text=element_text(size=12),
-    #         plot.title=element_text(size=10)) +
-    #   scale_color_manual(values=viridis(2,end=0.7),
-    #                      guide=guide_legend(title="Legend")) -> p1
-    
-    # point_label<-paste0(model,
-    #                     "\n",input$sel_num,": ",!!sym(input$sel_num),
-    #                     "\n","mpg",": ",mpg,
-    #                     "\n",input$sel_cat,": ",!!sym(input$sel_cat))
-    
-    # pred_dat() %>%
-    #   ggplot(aes(label=car,x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat))) +
-    #   geom_point(data=~filter(.x,!!sym(input$sel_cat)==0),
-    #              aes(color= paste(input$sel_cat,0,sep=" = "),
-    #                  text=paste0(car,
-    #                              "\n",input$sel_num,": ",!!sym(input$sel_num),
-    #                              "\n","mpg",": ",mpg,
-    #                              "\n",input$sel_cat,": ",!!sym(input$sel_cat)))) +
-    #   geom_point(data=~filter(.x,!!sym(input$sel_cat)==1),
-    #              aes(color= paste(input$sel_cat,1,sep=" = "),
-    #                  text=paste0(car,
-    #                              "\n",input$sel_num,": ",!!sym(input$sel_num),
-    #                              "\n","mpg",": ",mpg,
-    #                              "\n",input$sel_cat,": ",!!sym(input$sel_cat)))) +
-    #   expand_limits(x=c(0,NA),y=c(0,NA)) +
-    #   theme_bw() +
-    #   theme(text=element_text(size=12),
-    #         plot.title=element_text(size=10)) +
-    #   scale_color_manual(values=viridis(2,end=0.7),
-    #                      guide=guide_legend(title="Legend")) -> p1
-    
-    
     pred_dat() %>%
       ggplot(aes(label=car,x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat))) +
       geom_point(data=~filter(.x,!!sym(input$sel_cat)==0),
@@ -248,6 +191,7 @@ server <- function(input, output, session) {
                           "\n",input$sel_num,": ",!!sym(input$sel_num),
                           "\n","mpg",": ",mpg,
                           "\n",input$sel_cat,": ",!!sym(input$sel_cat))),
+                 #adding group was key to getting tooltip info to display properly
                  group=1) +
       geom_point(data=~filter(.x,!!sym(input$sel_cat)==1),
                  aes(color= paste(input$sel_cat,1,sep=" = "),
@@ -266,8 +210,16 @@ server <- function(input, output, session) {
     #dynamically add regression lines
     p2<-add_reg_lines(p1,mod_num=input$rad_mod,num=input$sel_num,cat=input$sel_cat)
     
+    
+    #dynamically add CI bands
+    p3<-p2 %>%
+      {if(input$rad_ci=="Yes") add_ci_bands(.,input$rad_mod,input$sel_num,input$sel_cat) else .}
+    
+    # p3<-add_ci_bands(p2,input$rad_mod,input$sel_num,input$sel_cat)
+    
+    
     #add plotly specifications
-    ggplotly(p2,tooltip="text") %>%
+    ggplotly(p3,tooltip="text") %>%
       #set deep bottom margin
       layout(margin=list(b=160),
              #put legend centered on right of plot
@@ -372,29 +324,31 @@ server <- function(input, output, session) {
 shinyApp(ui = ui, server = server)
 
 
-## NEXT
+
+## LATER
 # add more summary stats
 # later for ANCOVA analysis, have user choose manual or automated
 # replace br()s with function--see spaceship titanic
-# create a tooltip text function
-# set tooltip to display regression lines (and later ci bands)
-# apply signif to CI bands
+# move legend underneath plot and equation above plot or beneath new legend position
+# tie equation to a checkbox?
+# add a second main panel with info on data set
 
 
-# 2) add input to display CI/PI bars (as geom_ribbon)--maybe a 3-choice, in-line set of radio buttons
+## NEXT
+
+
 
 
 ## DONE
+# developed function to be able to display CI bands with working tooltip onto plot
+# enabled radio button to display CI bands when selected (and to individually hide in plotly)
+
+
+## LAST COMMIT
 # updated function add_reg_lines to add separate points and lines to plotly
 # changed field 'model' to 'car' to reduce confusion
 # 'signifed' fit, upr, and lwr to 4 sigfigs
 # corrected info displayed in tooltip for points and reg lines
-
-
-## LAST COMMIT
-# developed function to dynamically add regression lines to plots
-# add conditional UI: updates radio button choices from "No" to c("No","Yes") if mod1-6 selected
-# developed backbone code to incrementally display reg mods and ci bands
 
 
 

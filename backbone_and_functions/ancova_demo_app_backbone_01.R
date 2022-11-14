@@ -169,7 +169,7 @@ mod6_ci %>%
 
 
 ## Plot
-# mod1: with lines and ribbons
+# mod1: with lines and ribbons----------------------------------------------------------------------
 mod1_ci_df %>%
   #put x, y, and color in ggplot()
   ggplot(aes(x=disp,y=mpg,color=am)) +
@@ -197,7 +197,8 @@ mod1_ci_df %>%
 
 ggplotly(plot1)
 
-# mod1: add lines and bands separately
+
+# mod1: add lines and bands separately--------------------------------------------------------------
 #start with points
 mod1_ci_df %>%
   #put x, y, and color in ggplot()
@@ -244,7 +245,7 @@ plot1b +
 ggplotly(plot1c)
 
 
-# mod5: add lines and bands incrementally
+# mod5: add lines and bands incrementally-----------------------------------------------------------
 #start with points
 mod5_ci_df %>%
   #put x, y, and color in ggplot()
@@ -283,7 +284,7 @@ ggplotly(plot5c)
 
 
 
-# mod6: add lines and bands incrementally
+# mod6: add lines and bands incrementally-----------------------------------------------------------
 #start with points
 mod6_ci_df %>%
   #put x, y, and color in ggplot()

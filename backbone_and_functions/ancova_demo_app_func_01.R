@@ -1,8 +1,7 @@
 #Created by Keith Post on 11/6/22
 #Functions for ANCOVA Demo App
 
-#### Server Functions===============================================================================
-### Function to predict values
+#### Function to predict values=====================================================================
 # find_range<-function(data,null=FALSE,num=NA,cat=NA,cat_val=NA,lm){
 #   # #first four models (1:4)
 #   if(null==FALSE & !is.na(num) & !is.na(cat)) {
@@ -147,6 +146,7 @@ add_reg_lines<-function(plot_obj,mod_num,num,cat){
   else if(mod_num=="mod5"){
     plot_obj +
       geom_line(aes(x=!!sym(num),y=fit,color="model",
+                    #note that cat var info removed
                     text=paste0(
                       "\n",num,": ",!!sym(num),
                       "\n","fit",": ",fit)),
@@ -159,6 +159,7 @@ add_reg_lines<-function(plot_obj,mod_num,num,cat){
   else if(mod_num=="mod6"){
     plot_obj +
       geom_line(aes(x=!!sym(num),y=fit,color="model",
+                    #note that cat var info removed
                     text=paste0(
                       "\n",num,": ",!!sym(num),
                       "\n","fit",": ",fit)),
@@ -175,11 +176,67 @@ add_reg_lines<-function(plot_obj,mod_num,num,cat){
 
 
 #### Function to add CI lines to plot===============================================================
-add_ci_lines<-function(plot_obj,mod_num,num,cat){
+add_ci_bands<-function(plot_obj,mod_num,num,cat){
+  #models 1-4
+  if(mod_num %in% paste0("mod",1:4)) {
+  plot_obj +
+    #separate CIs for labeling
+    geom_ribbon(data=~filter(.x,!!sym(cat)==0),
+                aes(x=!!sym(num),ymin=lwr,ymax=upr,color=paste0("ci: ",cat," = 0"),
+                    text=paste0(
+                    "\n",num,": ",!!sym(num),
+                    "\n","lwr",": ",lwr,
+                    "\n","upr",": ",upr,
+                    "\n",cat,": ",!!sym(cat))),
+                fill="gray50",alpha=0.2,group=1) +
+    geom_ribbon(data=~filter(.x,!!sym(cat)==1),
+                aes(x=!!sym(num),ymin=lwr,ymax=upr,color=paste0("ci: ",cat," = 1"),
+                    text=paste0(
+                      "\n",num,": ",!!sym(num),
+                      "\n","lwr",": ",lwr,
+                      "\n","upr",": ",upr,
+                      "\n",cat,": ",!!sym(cat))),
+                fill="gray50",alpha=0.2,group=2) +
+    #manually apply viridis scale
+    scale_color_manual(values=c(rep("gray50",2),viridis(2,end=0.7),viridis(2,end=0.7)),
+                       guide=guide_legend(title="Legend")) 
+  }
   
+  #if model 5 selected (no effect of binary variable)
+  else if(mod_num=="mod5"){
+    plot_obj +
+      #separate CIs for labeling
+      geom_ribbon(aes(x=!!sym(num),ymin=lwr,ymax=upr,color="ci",
+                      text=paste0(
+                        "\n",num,": ",!!sym(num),
+                        "\n","lwr",": ",lwr,
+                        "\n","upr",": ",upr)),
+                  fill="gray50",alpha=0.2,group=3) +
+      #manually apply viridis scale
+      scale_color_manual(values=c("gray50","blue",viridis(2,end=0.7)),
+                         guide=guide_legend(title="Legend")) 
+  }
+    
+  #if null model selected
+  else if(mod_num=="mod6"){
+    plot_obj +
+      #separate CIs for labeling
+      geom_ribbon(aes(x=!!sym(num),ymin=lwr,ymax=upr,color="ci",
+                      text=paste0(
+                        "\n",num,": ",!!sym(num),
+                        "\n","lwr",": ",lwr,
+                        "\n","upr",": ",upr)),
+                  fill="gray50",alpha=0.2,group=3) +
+      #manually apply viridis scale
+      scale_color_manual(values=c("gray50","black", viridis(2,end=0.7)),
+                         guide=guide_legend(title="Legend"))
+  }
+      
+  #if no model selected
+  else if(mod_num=="mod0"){
+    plot_obj 
+  }
 }
-
-
 
 
 
