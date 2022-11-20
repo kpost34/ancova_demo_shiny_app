@@ -1,9 +1,11 @@
 #Created by Keith Post on 10/18/22
 #Shiny App demo for data that fit an ANCOVA
 
+#set options
+options(show.signif.stars=FALSE)
 
 #load packages
-pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom,viridisLite,shinyjs)
+pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom,viridisLite,shinyjs,rstatix)
 
 
 #load data
@@ -19,6 +21,7 @@ mtcars<-as_tibble(mtcars,rownames="car") %>%
 source(here("backbone_and_functions","ancova_demo_app_func_01.R"))
 
 
+#### Create Objects=================================================================================
 #create model choices object
 mod_choices=c("No model"="mod0",
               "Mod1: Full, interactive"="mod1",
@@ -27,9 +30,28 @@ mod_choices=c("No model"="mod0",
               "Mod4: No effect of continuous variable"="mod4",
               "Mod5: No effect of binary variable"="mod5",
               "Mod6: Null Model"="mod6")
+
+
+#create main panel tabs for ANCOVA
+ancova_tabs<-tabsetPanel(
+  id = "tabset_ancova",
+  type = "hidden",
+  #tabPanel ids need to match choices in selector
+  tabPanel("tab_initial"),
+  tabPanel("tab_active",
+    radioButtons("rad_manANCOVA1","Remove a model term?",
+                choices="No"),
+    radioButtons("rad_manANCOVA2","Remove another model term?",
+                choices="No"),
+    radioButtons("rad_manANCOVA3","Remove a third model term?",
+                choices="No")
+  )
+)
+
+
             
 
-#### Define UI 
+#### Define UI =====================================================================================
 ui <- fluidPage(
   ### Activate shinyjs
   useShinyjs(),
@@ -42,7 +64,7 @@ ui <- fluidPage(
   ### Application title
   titlePanel("ANCOVA Demo App"),
 
-  #### Sidebar panel layout
+  #### Variable selectors and model controls--------------------------------------------------------
   sidebarLayout(
     sidebarPanel(width=2,
       ## Numerical variable selector
@@ -67,12 +89,9 @@ ui <- fluidPage(
       radioButtons("rad_ci","Add confidence interval(s) to model?",
                    choices=c("No","Yes"),
                    selected="No")
-      # checkboxGroupInput("chkGrp_ancova","Run ANCOVA on",
-      #                    choices=paste0("Mod",1:6),
-      #                    inline=TRUE)
     ),
 
-    #### Show tables and a plot of the data
+    #### Show tables and a plot of the data---------------------------------------------------------
     mainPanel(width=10,
       #summary stats in tables
       h3(strong("Summary Statistics")),
@@ -102,24 +121,65 @@ ui <- fluidPage(
         )
       ),
       #add second horizontal line
-      hr(),
-      #ancova/anova table
-      htmlOutput("ancova_subtitle"),
+      hr()
+    )
+  ),
+  
+  #### ANCOVA Controls------------------------------------------------------------------------------
+  sidebarLayout(
+    sidebarPanel(width=2,
+      #selector to switch tabs
+      selectInput("sel_ancova","Would you like to run an ANCOVA?",
+        choices=c("No"="tab_initial","Yes"="tab_active"),selected="tab_initial"),
+      #tabset stored as an object--important to keep selectInput outside of tabsetPanel
+      ancova_tabs
+    ),
+  
+  #### ANCOVA Output--------------------------------------------------------------------------------
+    mainPanel(width=10,
       fluidRow(
+        h3(strong("Analysis of Covariance"))
+      ),
+      fluidRow(
+        htmlOutput("ancova_mod1_text"),
+        tableOutput("ancova_mod1_tab")
+      ),
+      fluidRow(
+        htmlOutput("ancova_mod2_text"),
         column(5,
-          tableOutput("ancova_fullmod_sum_tab")
+          tableOutput("ancova_mod2_tab")
         ),
-        column(4,
-          tableOutput("ancova_mod_sum_tab")
+        column(5,
+          tableOutput("ancova_comp1_tab")
+        )
+      ),
+      fluidRow(
+        htmlOutput("ancova_mod3_text"),
+        column(5,
+          tableOutput("ancova_mod3_tab")
+        ),
+        column(5,
+          tableOutput("ancova_comp2_tab")
+        )
+      ),
+      fluidRow(
+        htmlOutput("ancova_mod4_text"),
+        column(5,
+          tableOutput("ancova_mod4_tab")
+        ),
+        column(5,
+          tableOutput("ancova_comp3_tab")
         )
       )
     )
   )
 )
 
-#### Define server function
+
+##### Define server function
 server <- function(input, output, session) {
   
+  #### Summary Stats Section------------------------------------------------------------------------
   ### Output summary stats tables using selected variables
   ## No groups
   output$sum_tab_noGroup<-renderTable({
@@ -143,6 +203,7 @@ server <- function(input, output, session) {
   )
 
   
+  #### LMs, Scatter Plot, and Model Info------------------------------------------------------------
   ### Create reactive objects
   ## model object
   model<-reactive({
@@ -239,25 +300,9 @@ server <- function(input, output, session) {
 
     })
     
-
-  
-  # ## ANCOVA 
-  # # With interaction
-  # mod3a<-reactive({
-  #   req(input$chkGrp_ancova=="full_mod_wIntxn")
-  #   mtcars %>%
-  #     lm(paste0("mpg","~",input$sel_cat,"*",input$sel_num) %>% as.formula(),data=.)
-  # })
-  # 
-  # # Without interaction
-  # mod3b<-reactive({
-  #   req(input$chkGrp_ancova=="mod_noIntxn")
-  #   mtcars %>%
-  #     lm(paste0("mpg","~",input$sel_cat,"+",input$sel_num) %>% as.formula(),data=.)
-  # })
   
   
-  ### Linear models
+  ### Linear model output
   ## Display of subtitle
   output$model_subtitle<-renderUI({
     req(input$rad_mod %in% paste0("mod",1:6))
@@ -288,36 +333,257 @@ server <- function(input, output, session) {
 
   
   
-  ### ANCOVA output
-  ## Subtitle
-  output$ancova_subtitle<-renderUI({
-    req(input$chkGrp_ancova)
-    HTML("<b><h3>ANCOVA Model Output</b></h3>")
+  #### ANCOVA section--------------------------------------------------------------------------------
+  ### Conditional UI
+  ## Update tabset panel based on selection
+  observeEvent(input$sel_ancova, {
+    updateTabsetPanel(input="tabset_ancova",selected=input$sel_ancova)
   })
   
   
-  # ## Model
-  # # With interaction
-  # output$ancova_fullmod_sum_tab<-renderTable({
-  #   mod3a() %>%
-  #     anova() %>%
-  #     tidy()},
-  #   striped=TRUE,hover=TRUE,digits=2,
-  #   caption="Full model (with interaction)",
-  #   caption.placement=getOption("xtable.caption.placement","top")
-  # )
-  # 
-  # # Without interaction
-  # output$ancova_mod_sum_tab<-renderTable({
-  #   mod3b() %>%
-  #     anova() %>%
-  #     tidy()},
-  #   striped=TRUE,hover=TRUE,digits=2,
-  #   caption="Model (without interaction)",
-  #   caption.placement=getOption("xtable.caption.placement","top")
-  # )
+  ## Create reactive objects of choices
+  # term_choices1
+  term_choices1<-reactive({
+    #cat or intxn
+    c(input$sel_cat,paste0(input$sel_cat,":",input$sel_num))
+  })
+
+  # term_choices2
+  term_choices2<-reactive({
+    #cat
+    if(input$rad_manANCOVA1==input$sel_cat){
+      paste0(input$sel_cat,":",input$sel_num)
+    }
+    #num or intxn
+    else if(input$rad_manANCOVA1==paste0(input$sel_cat,":",input$sel_num)){
+      c(paste(input$sel_cat),paste(input$sel_num))
+    }
+  })
+
+  # term_choices3
+  term_choices3<-reactive({
+    #cat or intxn
+    if(input$rad_manANCOVA2 %in% c(input$sel_cat,paste0(input$sel_cat,":",input$sel_num))){
+      paste(input$sel_num)
+    }
+    #num
+    else if(input$rad_manANCOVA2==input$sel_num){
+      paste(input$sel_cat)
+    }
+  })
+  
+  
+  ## Update radioButtons for manual model selection
+  # Remove first term
+  observeEvent(input$sel_ancova, {
+    req(input$sel_ancova=="tab_active")
+    updateRadioButtons(inputId="rad_manANCOVA1",choices=c("No",term_choices1()))
+  })
+
+
+  # Remove second term
+  observeEvent(input$rad_manANCOVA1 %in% term_choices1(), {
+    updateRadioButtons(inputId="rad_manANCOVA2",choices=c("No",term_choices2()))
+  })
+
+  # Remove third term
+  observeEvent(input$rad_manANCOVA2 %in% term_choices2(), {
+    updateRadioButtons(inputId="rad_manANCOVA3",choices=c("No",term_choices3()))
+  })
+  
+  
+  ### Model output
+  ## Create reactive objects
+  # Full, interactive model
+  ancova_mod1<-reactive({
+    # req(input$sel_ancova=="tab_active")
+    mtcars %>%
+      lm(paste0("mpg","~",input$sel_cat,"*",input$sel_num) %>% as.formula(),data=.)
+  })
+  
+  
+  # Second model (after removing one term)
+  ancova_mod2<-reactive({
+    if(input$rad_manANCOVA1==input$sel_cat){
+      mtcars %>%
+        lm(paste0("mpg","~",input$sel_num,"+",input$sel_cat,":",input$sel_num) %>% as.formula(),data=.)
+    }
+    else if(input$rad_manANCOVA1==paste0(input$sel_cat,":",input$sel_num)){
+      mtcars %>%
+        lm(paste0("mpg","~",input$sel_cat,"+",input$sel_num) %>% as.formula(),data=.)
+    }
+  })
+  
+  
+  # Third model (after removing two terms)
+  ancova_mod3<-reactive({
+    if(input$rad_manANCOVA2 %in% c(input$sel_cat,paste0(input$sel_cat,":",input$sel_num))) {
+      mtcars %>%
+        lm(paste0("mpg","~",input$sel_num) %>% as.formula(),data=.)
+    }
+    else if(input$rad_manANCOVA2==input$sel_num) {
+      mtcars %>%
+        lm(paste0("mpg","~",input$sel_cat) %>% as.formula(),data=.)
+    }
+  })
+  
+  
+  # Fourth model (after removing three terms)
+  ancova_mod4<-lm(mpg~1,mtcars)
+  
+
+  
+  ### Model selection tables
+  ## Full, interactive model
+  # ANOVA
+  #table title
+  output$ancova_mod1_text<-renderUI({
+    req(input$sel_ancova=="tab_active")
+    HTML("<h4>Mod1: Full, interactive model</h4>")
+  })
+  
+  #table body
+  output$ancova_mod1_tab<-renderTable({
+    req(input$sel_ancova=="tab_active")
+    ancova_mod1() %>%
+      anova_test(type=1) %>%
+      as_tibble() %>%
+      select(Effect:p) %>%
+      #applies sigfigs and converts to str
+      mutate(p=signif(p,3) %>% formatC(format="g"))},
+    striped=TRUE,hover=TRUE,
+    caption="ANOVA table",
+    caption.placement=getOption("xtable.caption.placement","top")
+  )
+  
+  
+  ## Second model (one term dropped)
+  # ANOVA table
+  #table title
+  output$ancova_mod2_text<-renderUI({
+    req(input$sel_ancova=="tab_active")
+    req(input$rad_manANCOVA1 %in% term_choices1())
+    if(input$rad_manANCOVA1==input$sel_cat){
+      HTML("<h4>Mod3: Different slopes, common intercept</h4>")
+    }
+    else if(input$rad_manANCOVA1==paste0(input$sel_cat,":",input$sel_num)){
+      HTML("<h4>Mod2: Full, additive model</h4>")
+    }
+  })
+  
+  #table body
+  output$ancova_mod2_tab<-renderTable({
+    req(input$sel_ancova=="tab_active")
+    req(input$rad_manANCOVA1 %in% term_choices1())
+    ancova_mod2() %>%
+      anova_test(type=1) %>%
+      as_tibble() %>%
+      select(Effect:p) %>%
+      #applies sigfigs and converts to str
+      mutate(p=signif(p,3) %>% formatC(format="g"))},
+    striped=TRUE,hover=TRUE,
+    caption="ANOVA table",
+    caption.placement=getOption("xtable.caption.placement","top")
+  )
+  
+  # Comparison ANOVA
+  output$ancova_comp1_tab<-renderTable({
+    req(input$sel_ancova=="tab_active")
+    req(input$rad_manANCOVA1 %in% term_choices1())
+    anova(ancova_mod1(),ancova_mod2())[1:6] %>%
+      rename(p=`Pr(>F)`) %>%
+      mutate(p=ifelse(!is.na(p),
+                      signif(p,3) %>% formatC(format="g"),
+                      NA_character_))},
+    striped=TRUE,hover=TRUE,
+    caption="Comparison between current and previous models",
+    caption.placement=getOption("xtable.caption.placement","top")
+  )
+  
+  
+  ## Third model (one term dropped)
+  # ANOVA table
+  #table title
+  output$ancova_mod3_text<-renderUI({
+    req(input$sel_ancova=="tab_active")
+    req(input$rad_manANCOVA2 %in% term_choices2())
+    if(input$rad_manANCOVA2 %in% c(input$sel_cat,paste0(input$sel_cat,":",input$sel_num))) {
+      HTML("<h4>Mod5: No effect of binary variable</h4>")
+    }
+    else if(input$rad_manANCOVA2==input$sel_num) {
+      HTML("<h4>Mod4: No effect of continuous variable</h4>")
+    }
+  })
+  
+  #table body
+  output$ancova_mod3_tab<-renderTable({
+    req(input$sel_ancova=="tab_active")
+    req(input$rad_manANCOVA2 %in% term_choices2())
+    ancova_mod3() %>%
+      anova_test(type=1) %>%
+      as_tibble() %>%
+      select(Effect:p) %>%
+      #applies sigfigs and converts to str
+      mutate(p=signif(p,3) %>% formatC(format="g"))},
+    striped=TRUE,hover=TRUE,
+    caption="ANOVA table",
+    caption.placement=getOption("xtable.caption.placement","top")
+  )    
+  
+  
+  # Comparison ANOVA
+  output$ancova_comp2_tab<-renderTable({
+    req(input$sel_ancova=="tab_active")
+    req(input$rad_manANCOVA2 %in% term_choices2())
+    anova(ancova_mod2(),ancova_mod3())[1:6] %>%
+      rename(p=`Pr(>F)`) %>%
+      mutate(p=ifelse(!is.na(p),
+                      signif(p,3) %>% formatC(format="g"),
+                      NA_character_))},
+    striped=TRUE,hover=TRUE,
+    caption="Comparison between current and previous models",
+    caption.placement=getOption("xtable.caption.placement","top")
+  )
+
+
+  ## Fourth model (three terms dropped) [null model]
+  # ANOVA table
+  #table title
+  output$ancova_mod4_text<-renderUI({
+    req(input$sel_ancova=="tab_active")
+    req(input$rad_manANCOVA3 %in% term_choices3())
+    HTML("<h4>Mod6: Null model</h4>")})
+  
+  #table body
+  output$ancova_mod4_tab<-renderTable({
+    req(input$sel_ancova=="tab_active")
+    req(input$rad_manANCOVA3 %in% term_choices3())
+    ancova_mod4 %>%
+      #use tidy because can't get p-val from anova() of null model
+      tidy() %>%
+      rename(p=p.value) %>%
+      mutate(p=signif(p,3) %>% formatC(format="g"))},
+    striped=TRUE,hover=TRUE,
+    caption="Model summary",
+    caption.placement=getOption("xtable.caption.placement","top")
+  )
+
+  # Comparison ANOVA
+  output$ancova_comp3_tab<-renderTable({
+    req(input$sel_ancova=="tab_active")
+    req(input$rad_manANCOVA3 %in% term_choices3())
+    anova(ancova_mod3(),ancova_mod4)[1:6] %>%
+      rename(p=`Pr(>F)`) %>%
+      mutate(p=ifelse(!is.na(p),
+                      signif(p,3) %>% formatC(format="g"),
+                      NA_character_))},
+    striped=TRUE,hover=TRUE,
+    caption="Comparison between current and previous models",
+    caption.placement=getOption("xtable.caption.placement","top")
+    )
   
 }
+
 
 
 # Run the application 
@@ -327,28 +593,30 @@ shinyApp(ui = ui, server = server)
 
 ## LATER
 # add more summary stats
-# later for ANCOVA analysis, have user choose manual or automated
 # replace br()s with function--see spaceship titanic
-# move legend underneath plot and equation above plot or beneath new legend position
-# tie equation to a checkbox?
+
 # add a second main panel with info on data set
+# add an info button in bottom right of upper sidebar panel, which toggles to info panel
+#move equation higher
+
+#when binary variable is am, colors of scatter plot are off--check and resolve code
 
 
 ## NEXT
-
+# create function to bunch all the ui outputs
 
 
 
 ## DONE
-# developed function to be able to display CI bands with working tooltip onto plot
-# enabled radio button to display CI bands when selected (and to individually hide in plotly)
+# scrapped auto-model selection; got UI logic to work for ANCOVA
+# crated reactive models and got all model and comparison tables to display
+# added table titles and captions
+
 
 
 ## LAST COMMIT
-# updated function add_reg_lines to add separate points and lines to plotly
-# changed field 'model' to 'car' to reduce confusion
-# 'signifed' fit, upr, and lwr to 4 sigfigs
-# corrected info displayed in tooltip for points and reg lines
+# developed function to be able to display CI bands with working tooltip onto plot
+# enabled radio button to display CI bands when selected (and to individually hide in plotly)
 
 
 
