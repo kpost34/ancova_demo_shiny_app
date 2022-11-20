@@ -77,9 +77,8 @@ ui <- fluidPage(
                   choices=mtcars %>%
                     select(where(is.factor)) %>%
                     names()),
-      br(),
-      br(),
-      br(),
+      #add line breaks
+      linebreaks(6),
       ### Radio buttons to select regression model
       radioButtons("rad_mod","Select regression model",
                    choices=mod_choices,
@@ -94,7 +93,9 @@ ui <- fluidPage(
     #### Show tables and a plot of the data---------------------------------------------------------
     mainPanel(width=10,
       #summary stats in tables
-      h3(strong("Summary Statistics")),
+      fluidRow(
+        h3(strong("Summary Statistics"))
+      ),
       fluidRow(
         column(5,
           tableOutput("sum_tab_noGroup")
@@ -106,10 +107,13 @@ ui <- fluidPage(
       ),
       #add horizontal line
       hr(),
+      #add subtitle
+      fluidRow(
+        h3(strong("Scatter Plot"))
+      ),
       #interactive plot
       fluidRow(
         column(8,
-          h3(strong("Scatter Plot")),
           plotlyOutput("scatter_plot",height="550px")
         ),
         #full model output
@@ -144,36 +148,42 @@ ui <- fluidPage(
         htmlOutput("ancova_mod1_text"),
         tableOutput("ancova_mod1_tab")
       ),
-      fluidRow(
-        htmlOutput("ancova_mod2_text"),
-        column(5,
-          tableOutput("ancova_mod2_tab")
-        ),
-        column(5,
-          tableOutput("ancova_comp1_tab")
-        )
-      ),
-      fluidRow(
-        htmlOutput("ancova_mod3_text"),
-        column(5,
-          tableOutput("ancova_mod3_tab")
-        ),
-        column(5,
-          tableOutput("ancova_comp2_tab")
-        )
-      ),
-      fluidRow(
-        htmlOutput("ancova_mod4_text"),
-        column(5,
-          tableOutput("ancova_mod4_tab")
-        ),
-        column(5,
-          tableOutput("ancova_comp3_tab")
-        )
-      )
+      ancova_mainPanel
     )
   )
 )
+      
+      
+#       fluidRow(
+#         htmlOutput("ancova_mod2_text"),
+#         column(5,
+#           tableOutput("ancova_mod2_tab")
+#         ),
+#         column(5,
+#           tableOutput("ancova_comp1_tab")
+#         )
+#       ),
+#       fluidRow(
+#         htmlOutput("ancova_mod3_text"),
+#         column(5,
+#           tableOutput("ancova_mod3_tab")
+#         ),
+#         column(5,
+#           tableOutput("ancova_comp2_tab")
+#         )
+#       ),
+#       fluidRow(
+#         htmlOutput("ancova_mod4_text"),
+#         column(5,
+#           tableOutput("ancova_mod4_tab")
+#         ),
+#         column(5,
+#           tableOutput("ancova_comp3_tab")
+#         )
+#       )
+#     )
+#   )
+# )
 
 
 ##### Define server function
@@ -184,8 +194,9 @@ server <- function(input, output, session) {
   ## No groups
   output$sum_tab_noGroup<-renderTable({
     mtcars %>%
-      select(!!sym(input$sel_num),mpg) %>%
-      summarize(across(everything(),list(mean=mean,sd=sd)))},
+      stats_summarize(input$sel_num,"mpg")},
+      # select(!!sym(input$sel_num),mpg) %>%
+      # summarize(across(everything(),list(min=min,mean=mean,max=max,sd=sd)))},
     striped=TRUE,hover=TRUE,
     caption="Without groups",
     caption.placement=getOption("xtable.caption.placement","top")
@@ -194,9 +205,10 @@ server <- function(input, output, session) {
   ## Grouped by categorical variable
   output$sum_tab_wGroup<-renderTable({
     mtcars %>%
-      select(!!sym(input$sel_num),!!sym(input$sel_cat),mpg) %>%
-      group_by(!!sym(input$sel_cat)) %>%
-      summarize(across(everything(),list(mean=mean,sd=sd)))},
+      stats_summarize_grp(input$sel_num,"mpg",input$sel_cat)},
+      # select(!!sym(input$sel_num),!!sym(input$sel_cat),mpg) %>%
+      # group_by(!!sym(input$sel_cat)) %>%
+      # summarize(across(everything(),list(min=min,mean=mean,max=max,sd=sd)))},
     striped=TRUE,hover=TRUE,
     caption="Grouped by binary variable",
     caption.placement=getOption("xtable.caption.placement","top")
@@ -592,9 +604,6 @@ shinyApp(ui = ui, server = server)
 
 
 ## LATER
-# add more summary stats
-# replace br()s with function--see spaceship titanic
-
 # add a second main panel with info on data set
 # add an info button in bottom right of upper sidebar panel, which toggles to info panel
 #move equation higher
@@ -608,15 +617,16 @@ shinyApp(ui = ui, server = server)
 
 
 ## DONE
-# scrapped auto-model selection; got UI logic to work for ANCOVA
-# crated reactive models and got all model and comparison tables to display
-# added table titles and captions
+# developed backbone code and functions to display more summary stats
+# created and implemented multiple linebreak function
+# used map and new custom to more cleanly build ui
 
 
 
 ## LAST COMMIT
-# developed function to be able to display CI bands with working tooltip onto plot
-# enabled radio button to display CI bands when selected (and to individually hide in plotly)
+# scrapped auto-model selection; got UI logic to work for ANCOVA
+# crated reactive models and got all model and comparison tables to display
+# added table titles and captions
 
 
 

@@ -1,6 +1,7 @@
 #Created by Keith Post on 11/6/22
 #Backbone code for ANCOVA Demo App
 
+#prepare data
 mtcars<-as_tibble(mtcars,rownames="car") %>%
   select(-c(cyl,gear,carb)) %>%
   mutate(across(c(vs,am),~as.factor(.x)))
@@ -12,6 +13,29 @@ mod3<-lm(mpg~disp+am:disp,data=mtcars)
 mod4<-lm(mpg~am,data=mtcars)
 mod5<-lm(mpg~disp,data=mtcars)
 mod6<-lm(mpg~1,data=mtcars)
+
+
+
+##### Summary stats=================================================================================
+### Numerical only
+mtcars %>%
+  select(wt,mpg) %>% 
+  pivot_longer(cols=wt:mpg,names_to="var",values_to="measure") %>%
+  group_by(var) %>%
+  summarize(across(measure,list(min=min,median=median,mean=mean,max=max,sd=sd),.names="{.fn}")) %>%
+  ungroup() %>%
+  mutate(var=factor(var,levels=c("wt","mpg"))) %>%
+  arrange(var)
+
+### Numerical and categorical
+mtcars %>%
+  select(disp,am,mpg) %>% 
+  pivot_longer(cols=c(disp,mpg),names_to="var",values_to="measure") %>%
+  group_by(var,am) %>%
+  summarize(across(measure,list(min=min,median=median,mean=mean,max=max,sd=sd),.names="{.fn}")) %>%
+  ungroup() %>%
+  mutate(var=factor(var,levels=c("disp","mpg"))) %>%
+  arrange(var)
 
 
 #### Plot data with regression lines================================================================

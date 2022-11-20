@@ -1,7 +1,65 @@
 #Created by Keith Post on 11/6/22
 #Functions for ANCOVA Demo App
 
-#### Function to predict values=====================================================================
+
+#### UI Functions===================================================================================
+
+### Function to easily create multiple line breaks--------------------------------------------------
+linebreaks <- function(n){HTML(strrep(br(), n))}
+
+
+### Function to create UI layout--------------------------------------------------------------------
+## New function
+make_fluid_row_col<-function(n){
+  fluidRow(
+    htmlOutput(paste0("ancova","_","mod",n,"_text")),
+    column(5,
+           tableOutput(paste0("ancova","_","mod",n,"_tab"))
+    ),
+    column(5,
+           tableOutput(paste0("ancova","_","comp",n-1,"_tab"))
+    )
+  )
+}
+
+## New function fed through map() to build multiple sections of UI
+ancova_mainPanel<-map(2:4,make_fluid_row_col)
+
+
+#### Server Functions===============================================================================
+### Functions to calculate summary stats------------------------------------------------------------
+## Ungrouped data
+stats_summarize<-function(data,num1,num2,cat){
+  data %>%
+    #select only numerical variable and mpg (num2)
+    select(!!sym(num1),!!sym(num2)) %>% 
+    #pivot to long format
+    pivot_longer(cols=everything(),names_to="var",values_to="measure") %>%
+    #group by variable for summary stats
+    group_by(var) %>%
+    #perform list of summary stats
+    summarize(across(measure,list(min=min,median=median,mean=mean,max=max,sd=sd),.names="{.fn}")) %>%
+    ungroup() %>%
+    #turn var into factor with independent numerical variable first in order
+    mutate(var=factor(var,levels=c(num1,num2))) %>%
+    arrange(var)
+}
+
+
+## Grouped data
+stats_summarize_grp<-function(data,num1,num2,cat){
+  data %>%
+    select(!!sym(num1),!!sym(num2),!!sym(cat)) %>% 
+    pivot_longer(cols=c(!!sym(num1),!!sym(num2)),names_to="var",values_to="measure") %>%
+    #group by numerical variables and cat levels
+    group_by(var,!!sym(cat)) %>%
+    summarize(across(measure,list(min=min,median=median,mean=mean,max=max,sd=sd),.names="{.fn}")) %>%
+    ungroup() %>%
+    mutate(var=factor(var,levels=c(num1,num2))) %>%
+    arrange(var)
+}
+
+### Function to predict values---------------------------------------------------------------------
 # find_range<-function(data,null=FALSE,num=NA,cat=NA,cat_val=NA,lm){
 #   # #first four models (1:4)
 #   if(null==FALSE & !is.na(num) & !is.na(cat)) {
@@ -56,8 +114,8 @@
 # }
 
 
-### Function to extract equation from lm objects
-## from AlexB on Stack Overflow
+### Function to extract equation from lm objects----------------------------------------------------
+## adapted from AlexB on Stack Overflow
 get_formula <- function(model) {
   
   broom::tidy(model)[, 1:2] %>%
@@ -71,7 +129,7 @@ get_formula <- function(model) {
 
 
 
-### Function to pull out individual regression lines from regression models========================
+### Function to pull out individual regression lines from regression models-------------------------
 pull_param<-function(lm,slope,cat){
   #create vectors for filtering
   grp0_terms<-c("(Intercept)",slope)
@@ -102,7 +160,7 @@ pull_param<-function(lm,slope,cat){
 
 
 
-#### Function to combine model fit and CI with data=================================================
+### Function to combine model fit and CI with data--------------------------------------------------
 combine_dat_fit<-function(mod,data,num,cat){
   type<-class(mod)=="lm"
   
@@ -117,7 +175,7 @@ combine_dat_fit<-function(mod,data,num,cat){
 
 
 
-#### Function to add regression lines to plot=======================================================
+#### Function to add regression lines to plot-------------------------------------------------------
 add_reg_lines<-function(plot_obj,mod_num,num,cat){
   
   
@@ -175,7 +233,7 @@ add_reg_lines<-function(plot_obj,mod_num,num,cat){
 }
 
 
-#### Function to add CI lines to plot===============================================================
+#### Function to add CI lines to plot---------------------------------------------------------------
 add_ci_bands<-function(plot_obj,mod_num,num,cat){
   #models 1-4
   if(mod_num %in% paste0("mod",1:4)) {
