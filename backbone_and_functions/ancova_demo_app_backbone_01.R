@@ -193,6 +193,39 @@ mod6_ci %>%
 
 
 ## Plot
+# scatter plot only---------------------------------------------------------------------------------
+#make labels and vecs
+lab0<-paste("am",0,sep=" = ")
+lab1<-paste("am",1,sep=" = ")
+
+cols<-viridis(2,end=0.8)
+names(cols)<-c(lab0,lab1)
+
+mtcars %>%
+  ggplot(aes(label=car,x=disp,y=mpg,color=am)) +
+  geom_point(data=~filter(.x,am==0),
+             aes(color=lab0,
+                 text=paste0(car,
+                             "\n","disp",": ",disp,
+                             "\n","mpg",": ",mpg,
+                             "\n","am",": ",am)),
+             #adding group was key to getting tooltip info to display properly
+             group=1) +
+  geom_point(data=~filter(.x,am==1),
+             aes(color= lab1,
+                 text=paste0(car,
+                             "\n","disp",": ",disp,
+                             "\n","mpg",": ",mpg,
+                             "\n","am",": ",am)),
+                 group=2) +
+               expand_limits(x=c(0,NA),y=c(0,NA)) +
+               theme_bw() +
+               theme(text=element_text(size=12),
+                     plot.title=element_text(size=10)) +
+               scale_color_manual(values=cols,
+                                  guide=guide_legend(title="Legend")) 
+             
+             
 # mod1: with lines and ribbons----------------------------------------------------------------------
 mod1_ci_df %>%
   #put x, y, and color in ggplot()
@@ -222,6 +255,7 @@ mod1_ci_df %>%
 ggplotly(plot1)
 
 
+
 # mod1: add lines and bands separately--------------------------------------------------------------
 #start with points
 mod1_ci_df %>%
@@ -235,8 +269,22 @@ mod1_ci_df %>%
                      guide=guide_legend(title="Legend")) -> plot1a
 
 ggplotly(plot1a)
-  
-  
+
+#specify colors first
+cols<-c("am = 0"=viridis(1,end=0),"am = 1"=viridis(1,begin=0.7,end=0.7))
+
+mod1_ci_df %>%
+  #put x, y, and color in ggplot()
+  ggplot(aes(x=disp,y=mpg,color=am)) + 
+  #separate points for labeling
+  geom_point(data=~filter(.x,am==0),aes(color= "am = 0")) +
+  geom_point(data=~filter(.x,am==1),aes(color ="am = 1")) +
+  theme_bw() +
+  scale_color_manual(values=cols,
+                     guide=guide_legend(title="Legend"))  -> plot1a2
+
+ggplotly(plot1a2)
+
 #add lines
 plot1a +
   #separate lines for labeling
@@ -347,19 +395,6 @@ ggplotly(plot6c)
 
 
 
-
-
-
-# mod2_ci_df %>%
-#   ggplot() +
-#   geom_point(aes(x=disp,y=mpg,color=am)) +
-#   {if(x==1) (geom_line(data=~filter(.x,am==0),aes(x=disp,y=fit,color=am)) +) else .+} 
-#   {if(x==2) geom_line(data=~filter(.x,am==1),aes(x=disp,y=fit,color=am)) + else .+} +
-#   geom_ribbon(data=~filter(.x,am==0),
-#               aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
-#   geom_ribbon(data=~filter(.x,am==1),
-#               aes(x=disp,ymin=lwr,ymax=upr),alpha=0.3) +
-#   scale_color_viridis_d(end=0.7)
   
             
             

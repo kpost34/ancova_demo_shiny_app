@@ -22,7 +22,7 @@ source(here("backbone_and_functions","ancova_demo_app_func_01.R"))
 
 
 #### Create Objects=================================================================================
-#create model choices object
+### Create model choices object
 mod_choices=c("No model"="mod0",
               "Mod1: Full, interactive"="mod1",
               "Mod2: Full, additive"="mod2",
@@ -32,7 +32,7 @@ mod_choices=c("No model"="mod0",
               "Mod6: Null Model"="mod6")
 
 
-#create main panel tabs for ANCOVA
+### Create main panel tabs for ANCOVA
 ancova_tabs<-tabsetPanel(
   id = "tabset_ancova",
   type = "hidden",
@@ -47,8 +47,6 @@ ancova_tabs<-tabsetPanel(
                 choices="No")
   )
 )
-
-
             
 
 #### Define UI =====================================================================================
@@ -148,45 +146,14 @@ ui <- fluidPage(
         htmlOutput("ancova_mod1_text"),
         tableOutput("ancova_mod1_tab")
       ),
+      #build rest of UI using make_fluid_row_col fed through map()
       ancova_mainPanel
     )
   )
 )
-      
-      
-#       fluidRow(
-#         htmlOutput("ancova_mod2_text"),
-#         column(5,
-#           tableOutput("ancova_mod2_tab")
-#         ),
-#         column(5,
-#           tableOutput("ancova_comp1_tab")
-#         )
-#       ),
-#       fluidRow(
-#         htmlOutput("ancova_mod3_text"),
-#         column(5,
-#           tableOutput("ancova_mod3_tab")
-#         ),
-#         column(5,
-#           tableOutput("ancova_comp2_tab")
-#         )
-#       ),
-#       fluidRow(
-#         htmlOutput("ancova_mod4_text"),
-#         column(5,
-#           tableOutput("ancova_mod4_tab")
-#         ),
-#         column(5,
-#           tableOutput("ancova_comp3_tab")
-#         )
-#       )
-#     )
-#   )
-# )
 
 
-##### Define server function
+##### Define server function========================================================================
 server <- function(input, output, session) {
   
   #### Summary Stats Section------------------------------------------------------------------------
@@ -195,8 +162,6 @@ server <- function(input, output, session) {
   output$sum_tab_noGroup<-renderTable({
     mtcars %>%
       stats_summarize(input$sel_num,"mpg")},
-      # select(!!sym(input$sel_num),mpg) %>%
-      # summarize(across(everything(),list(min=min,mean=mean,max=max,sd=sd)))},
     striped=TRUE,hover=TRUE,
     caption="Without groups",
     caption.placement=getOption("xtable.caption.placement","top")
@@ -206,9 +171,6 @@ server <- function(input, output, session) {
   output$sum_tab_wGroup<-renderTable({
     mtcars %>%
       stats_summarize_grp(input$sel_num,"mpg",input$sel_cat)},
-      # select(!!sym(input$sel_num),!!sym(input$sel_cat),mpg) %>%
-      # group_by(!!sym(input$sel_cat)) %>%
-      # summarize(across(everything(),list(min=min,mean=mean,max=max,sd=sd)))},
     striped=TRUE,hover=TRUE,
     caption="Grouped by binary variable",
     caption.placement=getOption("xtable.caption.placement","top")
@@ -256,29 +218,7 @@ server <- function(input, output, session) {
   output$scatter_plot <- renderPlotly({
     
     #create scatter plot using combined pred-dat reactive object
-    pred_dat() %>%
-      ggplot(aes(label=car,x=!!sym(input$sel_num),y=mpg,color=!!sym(input$sel_cat))) +
-      geom_point(data=~filter(.x,!!sym(input$sel_cat)==0),
-                 aes(color= paste(input$sel_cat,0,sep=" = "),
-                     text=paste0(car,
-                          "\n",input$sel_num,": ",!!sym(input$sel_num),
-                          "\n","mpg",": ",mpg,
-                          "\n",input$sel_cat,": ",!!sym(input$sel_cat))),
-                 #adding group was key to getting tooltip info to display properly
-                 group=1) +
-      geom_point(data=~filter(.x,!!sym(input$sel_cat)==1),
-                 aes(color= paste(input$sel_cat,1,sep=" = "),
-                     text=paste0(car,
-                     "\n",input$sel_num,": ",!!sym(input$sel_num),
-                     "\n","mpg",": ",mpg,
-                     "\n",input$sel_cat,": ",!!sym(input$sel_cat))),
-                    group=2) +
-      expand_limits(x=c(0,NA),y=c(0,NA)) +
-      theme_bw() +
-      theme(text=element_text(size=12),
-            plot.title=element_text(size=10)) +
-      scale_color_manual(values=viridis(2,end=0.7),
-                         guide=guide_legend(title="Legend")) -> p1
+    p1<-make_scatter(pred_dat(),input$sel_num,input$sel_cat,car)
     
     #dynamically add regression lines
     p2<-add_reg_lines(p1,mod_num=input$rad_mod,num=input$sel_num,cat=input$sel_cat)
@@ -287,9 +227,6 @@ server <- function(input, output, session) {
     #dynamically add CI bands
     p3<-p2 %>%
       {if(input$rad_ci=="Yes") add_ci_bands(.,input$rad_mod,input$sel_num,input$sel_cat) else .}
-    
-    # p3<-add_ci_bands(p2,input$rad_mod,input$sel_num,input$sel_cat)
-    
     
     #add plotly specifications
     ggplotly(p3,tooltip="text") %>%
@@ -302,7 +239,7 @@ server <- function(input, output, session) {
       if(input$rad_mod %in% paste0("mod",1:6)) {
         pltly1 %>%
           #if so, then model equation added as caption
-          layout(annotations=list(x=0,y=-.35,showarrow=F,xref="paper",yref="paper",
+          layout(annotations=list(x=0,y=-.28,showarrow=F,xref="paper",yref="paper",
                               xanchor="left",yanchor="auto",xshift=0,yshift=0,
                               text=paste0("Overall model:"," \n", get_formula(model())),
                               align="left",font=list(size=13))) -> pltly2
@@ -604,29 +541,28 @@ shinyApp(ui = ui, server = server)
 
 
 ## LATER
-# add a second main panel with info on data set
-# add an info button in bottom right of upper sidebar panel, which toggles to info panel
-#move equation higher
-
-#when binary variable is am, colors of scatter plot are off--check and resolve code
+# customize UI
 
 
 ## NEXT
-# create function to bunch all the ui outputs
+# add instructions (and adjust spacing and any other layout if necessary)
+
+# add a second main panel with info on data set
+# add an info button in bottom right of upper sidebar panel, which toggles to info panel
 
 
 
 ## DONE
-# developed backbone code and functions to display more summary stats
-# created and implemented multiple linebreak function
-# used map and new custom to more cleanly build ui
+# updated regression model equation function and moved equation upward
+# created make_scatter() to clean up code
+# resolved coloring issue with add_reg_lines() and add_ci_bands()
 
 
 
 ## LAST COMMIT
-# scrapped auto-model selection; got UI logic to work for ANCOVA
-# crated reactive models and got all model and comparison tables to display
-# added table titles and captions
+# developed backbone code and functions to display more summary stats
+# created and implemented multiple linebreak function
+# used map and new custom to more cleanly build ui
 
 
 

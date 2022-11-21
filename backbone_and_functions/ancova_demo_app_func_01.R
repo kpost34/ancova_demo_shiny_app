@@ -121,10 +121,12 @@ get_formula <- function(model) {
   broom::tidy(model)[, 1:2] %>%
     mutate(sign = ifelse(sign(estimate) == 1, ' + ', ' - ')) %>% #coeff signs
     mutate_if(is.numeric, ~ abs(round(., 2))) %>% #for improving formatting
-    mutate(a = ifelse(term == '(Intercept)', paste0('mpg ~ ', sign, estimate), paste0(sign, estimate, ' * ', term))) %>%
-    summarise(formula = paste(a, collapse = '')) %>%
+    mutate(a=case_when(
+      term == "(Intercept)" & sign==" - "  ~ paste0('mpg ~ ', sign, estimate), 
+      term == "(Intercept)" & sign==" + "  ~ paste0('mpg ~ ', estimate), 
+      TRUE                                 ~ paste0(sign,estimate,"(",term,")"))) %>%
+    summarize(formula = paste(a, collapse = '')) %>%
     as.character
-  
 }
 
 
@@ -175,31 +177,90 @@ combine_dat_fit<-function(mod,data,num,cat){
 
 
 
-#### Function to add regression lines to plot-------------------------------------------------------
+### Function to create scatter plot-----------------------------------------------------------------
+make_scatter<-function(data,num,cat,lab){
+  #make labels and vec
+  lab0<-paste(cat,0,sep=" = ")
+  lab1<-paste(cat,1,sep=" = ")
+  
+  cols<-viridis(2,end=0.7)
+  names(cols)<-c(lab0,lab1)
+  
+  #create plot
+  data %>%
+    ggplot(aes(label={{lab}},x=!!sym(num),y=mpg,color=!!sym(cat))) +
+    geom_point(data=~filter(.x,!!sym(cat)==0),
+               aes(color= lab0,
+                   text=paste0({{lab}},
+                               "\n",num,": ",!!sym(num),
+                               "\n","mpg",": ",mpg,
+                               "\n",cat,": ",!!sym(cat))),
+               #adding group was key to getting tooltip info to display properly
+               group=1) +
+    geom_point(data=~filter(.x,!!sym(cat)==1),
+               aes(color= lab1,
+                   text=paste0({{lab}},
+                               "\n",num,": ",!!sym(num),
+                               "\n","mpg",": ",mpg,
+                               "\n",cat,": ",!!sym(cat))),
+               group=2) +
+    expand_limits(x=c(0,NA),y=c(0,NA)) +
+    theme_bw() +
+    theme(text=element_text(size=12),
+          plot.title=element_text(size=10)) +
+    scale_color_manual(values=cols,
+                       guide=guide_legend(title="Legend")) 
+}
+
+
+
+### Function to add regression lines to plot--------------------------------------------------------
 add_reg_lines<-function(plot_obj,mod_num,num,cat){
+  ## create color labels and vecs
+  #points only
+  lab0<-paste(cat,0,sep=" = ")
+  lab1<-paste(cat,1,sep=" = ")
   
+  #mods 1-4
+  #labels
+  lab0_1_4<-paste0("model: ",cat," = 0")
+  lab1_1_4<-paste0("model: ",cat," = 1")
+
+  #vec
+  cols1_4<-c(viridis(2,end=0.7),
+            viridis(2,end=0.7))
+  names(cols1_4)<-c(lab0,lab1,lab0_1_4,lab1_1_4)
   
+  #mod 5
+  cols5<-c(viridis(2,end=0.7),"blue")
+  names(cols5)<-c(lab0,lab1,"model")
+  
+  #mod6
+  cols6<-c(viridis(2,end=0.7),"black")
+  names(cols6)<-c(lab0,lab1,"model")
+
+
   #if models 1-4 selected, add separate line for each cat level
   if(mod_num %in% paste0("mod",1:4)) {
     plot_obj +
       geom_line(data=~filter(.x,!!sym(cat)==0),
-                aes(x=!!sym(num),y=fit,color=paste0("model: ",cat," = 0"),
+                aes(x=!!sym(num),y=fit,color=lab0_1_4,
                     text=paste0(
                       "\n",num,": ",!!sym(num),
                       "\n","fit",": ",fit,
                       "\n",cat,": ",!!sym(cat))),
                 group=1) +
       geom_line(data=~filter(.x,!!sym(cat)==1),
-                aes(x=!!sym(num),y=fit,color=paste0("model: ",cat," = 1"),
+                aes(x=!!sym(num),y=fit,color=lab1_1_4,
                     text=paste0(
                       "\n",num,": ",!!sym(num),
                       "\n","fit",": ",fit,
                       "\n",cat,": ",!!sym(cat))),
                 group=2) +
-      scale_color_manual(values=c(viridis(2,end=0.7),viridis(2,end=0.7)),
+      scale_color_manual(values=cols1_4,
                          guide=guide_legend(title="Legend"))
   }
-  
+
   #if model 5 selected (no effect of binary variable), add one regression line
   else if(mod_num=="mod5"){
     plot_obj +
@@ -209,10 +270,10 @@ add_reg_lines<-function(plot_obj,mod_num,num,cat){
                       "\n",num,": ",!!sym(num),
                       "\n","fit",": ",fit)),
                 group=3) +
-      scale_color_manual(values=c("blue",viridis(2,end=0.7)),
+      scale_color_manual(values=cols5,
                          guide=guide_legend(title="Legend"))
   }
-  
+
   #if null model selected, add horizontal line at mean y
   else if(mod_num=="mod6"){
     plot_obj +
@@ -222,42 +283,70 @@ add_reg_lines<-function(plot_obj,mod_num,num,cat){
                       "\n",num,": ",!!sym(num),
                       "\n","fit",": ",fit)),
                 group=3) +
-      scale_color_manual(values=c("black", viridis(2,end=0.7)),
-                         guide=guide_legend(title="Legend")) 
+      scale_color_manual(values=cols6,
+                         guide=guide_legend(title="Legend"))
   }
-  
+
   #if no model selected, no line is added
   else if(mod_num=="mod0"){
-    plot_obj 
+    plot_obj
   }
 }
 
 
-#### Function to add CI lines to plot---------------------------------------------------------------
+
+#### Function to add CI bands to plot---------------------------------------------------------------
 add_ci_bands<-function(plot_obj,mod_num,num,cat){
+  ## create color labels and vecs
+  #points only
+  lab0<-paste(cat,0,sep=" = ")
+  lab1<-paste(cat,1,sep=" = ")
+  
+  #mods 1-4
+  #labels
+  lab0_1_4<-paste0("model: ",cat," = 0")
+  lab1_1_4<-paste0("model: ",cat," = 1")
+  
+  lab0_ci1_4<-paste0("ci: ",cat," = 0")
+  lab1_ci1_4<-paste0("ci: ",cat," = 1")
+  
+  #vec
+  cols_ci1_4<-c(viridis(2,end=0.7),
+             viridis(2,end=0.7))
+  names(cols_ci1_4)<-c(lab0,lab1,lab0_1_4,lab1_1_4)
+  
+  #mod 5
+  cols_ci5<-c(viridis(2,end=0.7),"blue","gray50")
+  names(cols_ci5)<-c(lab0,lab1,"model","ci")
+  
+  #mod6
+  cols_ci6<-c(viridis(2,end=0.7),"black","gray50")
+  names(cols_ci6)<-c(lab0,lab1,"model","ci")
+  
+  
   #models 1-4
   if(mod_num %in% paste0("mod",1:4)) {
-  plot_obj +
-    #separate CIs for labeling
-    geom_ribbon(data=~filter(.x,!!sym(cat)==0),
-                aes(x=!!sym(num),ymin=lwr,ymax=upr,color=paste0("ci: ",cat," = 0"),
-                    text=paste0(
-                    "\n",num,": ",!!sym(num),
-                    "\n","lwr",": ",lwr,
-                    "\n","upr",": ",upr,
-                    "\n",cat,": ",!!sym(cat))),
-                fill="gray50",alpha=0.2,group=1) +
-    geom_ribbon(data=~filter(.x,!!sym(cat)==1),
-                aes(x=!!sym(num),ymin=lwr,ymax=upr,color=paste0("ci: ",cat," = 1"),
-                    text=paste0(
-                      "\n",num,": ",!!sym(num),
-                      "\n","lwr",": ",lwr,
-                      "\n","upr",": ",upr,
-                      "\n",cat,": ",!!sym(cat))),
-                fill="gray50",alpha=0.2,group=2) +
-    #manually apply viridis scale
-    scale_color_manual(values=c(rep("gray50",2),viridis(2,end=0.7),viridis(2,end=0.7)),
-                       guide=guide_legend(title="Legend")) 
+    plot_obj +
+      #separate CIs for labeling
+      geom_ribbon(data=~filter(.x,!!sym(cat)==0),
+                  aes(x=!!sym(num),ymin=lwr,ymax=upr,color=lab0_ci1_4,
+                      text=paste0(
+                        "\n",num,": ",!!sym(num),
+                        "\n","lwr",": ",lwr,
+                        "\n","upr",": ",upr,
+                        "\n",cat,": ",!!sym(cat))),
+                  fill="gray50",alpha=0.2,group=1) +
+      geom_ribbon(data=~filter(.x,!!sym(cat)==1),
+                  aes(x=!!sym(num),ymin=lwr,ymax=upr,color=lab1_ci1_4,
+                      text=paste0(
+                        "\n",num,": ",!!sym(num),
+                        "\n","lwr",": ",lwr,
+                        "\n","upr",": ",upr,
+                        "\n",cat,": ",!!sym(cat))),
+                  fill="gray50",alpha=0.2,group=2) +
+      #manually apply viridis scale
+      scale_color_manual(values=cols_ci1_4,
+                         guide=guide_legend(title="Legend")) 
   }
   
   #if model 5 selected (no effect of binary variable)
@@ -271,10 +360,10 @@ add_ci_bands<-function(plot_obj,mod_num,num,cat){
                         "\n","upr",": ",upr)),
                   fill="gray50",alpha=0.2,group=3) +
       #manually apply viridis scale
-      scale_color_manual(values=c("gray50","blue",viridis(2,end=0.7)),
+      scale_color_manual(values=cols_ci5,
                          guide=guide_legend(title="Legend")) 
   }
-    
+  
   #if null model selected
   else if(mod_num=="mod6"){
     plot_obj +
@@ -286,26 +375,12 @@ add_ci_bands<-function(plot_obj,mod_num,num,cat){
                         "\n","upr",": ",upr)),
                   fill="gray50",alpha=0.2,group=3) +
       #manually apply viridis scale
-      scale_color_manual(values=c("gray50","black", viridis(2,end=0.7)),
+      scale_color_manual(values=cols_ci6,
                          guide=guide_legend(title="Legend"))
   }
-      
+  
   #if no model selected
   else if(mod_num=="mod0"){
     plot_obj 
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
