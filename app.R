@@ -105,13 +105,11 @@ ui <- fluidPage(
       ),
       #add horizontal line
       hr(),
-      #add subtitle
-      fluidRow(
-        h3(strong("Scatter Plot"))
-      ),
-      #interactive plot
       fluidRow(
         column(8,
+          #add subtitle
+          h3(strong("Scatter Plot")),
+          #interactive plot
           plotlyOutput("scatter_plot",height="550px")
         ),
         #full model output
@@ -324,12 +322,12 @@ server <- function(input, output, session) {
   
   ## Update radioButtons for manual model selection
   # Remove first term
-  observeEvent(input$sel_ancova, {
+  #new options presented if 1) active tab selected, 2) sel_num, or 3) sel_cat changed
+  observeEvent(list(input$sel_ancova,input$sel_num,input$sel_cat), {
     req(input$sel_ancova=="tab_active")
     updateRadioButtons(inputId="rad_manANCOVA1",choices=c("No",term_choices1()))
   })
-
-
+  
   # Remove second term
   observeEvent(input$rad_manANCOVA1 %in% term_choices1(), {
     updateRadioButtons(inputId="rad_manANCOVA2",choices=c("No",term_choices2()))
@@ -338,6 +336,36 @@ server <- function(input, output, session) {
   # Remove third term
   observeEvent(input$rad_manANCOVA2 %in% term_choices2(), {
     updateRadioButtons(inputId="rad_manANCOVA3",choices=c("No",term_choices3()))
+  })
+  
+  # Remove first term
+  observeEvent(input$sel_ancova, {
+    req(input$sel_ancova=="tab_active")
+    updateRadioButtons(inputId="rad_manANCOVA1",choices=c("No",term_choices1()))
+  })
+  
+  # Remove second term
+  observeEvent(input$rad_manANCOVA1 %in% term_choices1(), {
+    updateRadioButtons(inputId="rad_manANCOVA2",choices=c("No",term_choices2()))
+  })
+  
+  # Remove third term
+  observeEvent(input$rad_manANCOVA2 %in% term_choices2(), {
+    updateRadioButtons(inputId="rad_manANCOVA3",choices=c("No",term_choices3()))
+  })
+  
+  
+  ## Reset model-dropping radio buttons when variable inputs changed
+  observeEvent(input$sel_num, {
+    reset("rad_manANCOVA1")
+    reset("rad_manANCOVA2")
+    reset("rad_manANCOVA3")
+  })
+  
+  observeEvent(input$sel_cat, {
+    reset("rad_manANCOVA1")
+    reset("rad_manANCOVA2")
+    reset("rad_manANCOVA3")
   })
   
   
@@ -545,24 +573,22 @@ shinyApp(ui = ui, server = server)
 
 
 ## NEXT
-# add instructions (and adjust spacing and any other layout if necessary)
+# add instructions (and adjust spacing and any other layout if necessary) as a second navbar page
+  #perhaps: "app" and "info" (or "user guide")
 
-# add a second main panel with info on data set
-# add an info button in bottom right of upper sidebar panel, which toggles to info panel
 
 
 
 ## DONE
-# updated regression model equation function and moved equation upward
-# created make_scatter() to clean up code
-# resolved coloring issue with add_reg_lines() and add_ci_bands()
+#improved logic so that term-removing buttons reset to "No" when variable inputs changed and that
+  #they are populated appropriately 
 
 
 
 ## LAST COMMIT
-# developed backbone code and functions to display more summary stats
-# created and implemented multiple linebreak function
-# used map and new custom to more cleanly build ui
+# updated regression model equation function and moved equation upward
+# created make_scatter() to clean up code
+# resolved coloring issue with add_reg_lines() and add_ci_bands()
 
 
 
