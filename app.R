@@ -5,7 +5,7 @@
 options(show.signif.stars=FALSE)
 
 #load packages
-pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom,viridisLite,shinyjs,rstatix)
+pacman::p_load(shiny,here,tidyverse,janitor,plotly,broom,viridisLite,shinyjs,rstatix,bslib)
 
 
 #load data
@@ -49,103 +49,189 @@ ancova_tabs<-tabsetPanel(
 )
             
 
-#### Define UI =====================================================================================
-ui <- fluidPage(
-  ### Activate shinyjs
-  useShinyjs(),
+##### Define UI ====================================================================================
+ui <- navbarPage("ANCOVA Demo App",
+  ### Add theme
+  # theme=bslib::bs_theme(bootswatch="yeti"),
+  #### Create first tabPanel (the app)==============================================================
+  tabPanel("App",
   
-  ### CSS to make horizontal line thicker
-  tags$head(
-    tags$style(HTML("hr {border-top: 1px solid #000000;}"))
-  ),
-
-  ### Application title
-  titlePanel("ANCOVA Demo App"),
-
-  #### Variable selectors and model controls--------------------------------------------------------
-  sidebarLayout(
-    sidebarPanel(width=2,
-      ## Numerical variable selector
-      selectInput("sel_num","Select a continuous variable",
-                  choices=mtcars %>%
-                    select(where(is.numeric),-mpg) %>%
-                    names()),
-      ## Categorical (binary) variable selector
-      selectInput("sel_cat","Select a binary variable",
-                  choices=mtcars %>%
-                    select(where(is.factor)) %>%
-                    names()),
-      #add line breaks
-      linebreaks(6),
-      ### Radio buttons to select regression model
-      radioButtons("rad_mod","Select regression model",
-                   choices=mod_choices,
-                   selected="mod0"),
-      br(),
-      ### Radio buttons to choose whether to display CIs (connected to toggle())
-      radioButtons("rad_ci","Add confidence interval(s) to model?",
-                   choices=c("No","Yes"),
-                   selected="No")
+    ### Activate shinyjs
+    useShinyjs(),
+    
+    ### CSS to make horizontal line thicker
+    tags$head(
+      tags$style(HTML("hr {border-top: 1px solid #000000;}"))
     ),
-
-    #### Show tables and a plot of the data---------------------------------------------------------
-    mainPanel(width=10,
-      #summary stats in tables
-      fluidRow(
-        h3(strong("Summary Statistics"))
+  
+    ### Application title
+    #titlePanel("ANCOVA Demo App"),
+  
+    #### Variable selectors and model controls--------------------------------------------------------
+    sidebarLayout(
+      sidebarPanel(width=2,
+        ## Numerical variable selector
+        selectInput("sel_num","Select a continuous variable",
+                    choices=mtcars %>%
+                      select(where(is.numeric),-mpg) %>%
+                      names()),
+        ## Categorical (binary) variable selector
+        selectInput("sel_cat","Select a binary variable",
+                    choices=mtcars %>%
+                      select(where(is.factor)) %>%
+                      names()),
+        #add line breaks
+        linebreaks(6),
+        ### Radio buttons to select regression model
+        radioButtons("rad_mod","Select regression model",
+                     choices=mod_choices,
+                     selected="mod0"),
+        br(),
+        ### Radio buttons to choose whether to display CIs (connected to toggle())
+        radioButtons("rad_ci","Add confidence interval(s) to model?",
+                     choices=c("No","Yes"),
+                     selected="No")
       ),
-      fluidRow(
-        column(5,
-          tableOutput("sum_tab_noGroup")
+  
+      #### Show tables and a plot of the data---------------------------------------------------------
+      mainPanel(width=10,
+        #summary stats in tables
+        fluidRow(
+          h3(strong("Summary Statistics"))
         ),
-        column(1),
-        column(4,
-          tableOutput("sum_tab_wGroup")
-        )
-      ),
-      #add horizontal line
-      hr(),
-      fluidRow(
-        column(8,
-          #add subtitle
-          h3(strong("Scatter Plot")),
-          #interactive plot
-          plotlyOutput("scatter_plot",height="550px")
+        fluidRow(
+          column(5,
+            tableOutput("sum_tab_noGroup")
+          ),
+          column(1),
+          column(4,
+            tableOutput("sum_tab_wGroup")
+          )
         ),
-        #full model output
-        column(2,
-          htmlOutput("model_subtitle"),
-          tableOutput("mod1_tab"),
-          br(),
-          tableOutput("mod2_tab_wGroup")
-        )
+        #add horizontal line
+        hr(),
+        fluidRow(
+          column(8,
+            #add subtitle
+            h3(strong("Scatter Plot")),
+            #interactive plot
+            plotlyOutput("scatter_plot",height="550px")
+          ),
+          #full model output
+          column(2,
+            htmlOutput("model_subtitle"),
+            tableOutput("mod1_tab"),
+            br(),
+            tableOutput("mod2_tab_wGroup")
+          )
+        ),
+        #add second horizontal line
+        hr()
+      )
+    ),
+    
+    #### ANCOVA Controls----------------------------------------------------------------------------
+    sidebarLayout(
+      sidebarPanel(width=2,
+        #selector to switch tabs
+        selectInput("sel_ancova","Would you like to run an ANCOVA?",
+          choices=c("No"="tab_initial","Yes"="tab_active"),selected="tab_initial"),
+        #tabset stored as an object--important to keep selectInput outside of tabsetPanel
+        ancova_tabs
       ),
-      #add second horizontal line
-      hr()
+    
+      #### ANCOVA Output----------------------------------------------------------------------------
+      mainPanel(width=10,
+        fluidRow(
+          h3(strong("Analysis of Covariance"))
+        ),
+        fluidRow(
+          htmlOutput("ancova_mod1_text"),
+          tableOutput("ancova_mod1_tab")
+        ),
+        #build rest of UI using make_fluid_row_col fed through map()
+        ancova_mainPanel
+      )
     )
   ),
   
-  #### ANCOVA Controls------------------------------------------------------------------------------
-  sidebarLayout(
-    sidebarPanel(width=2,
-      #selector to switch tabs
-      selectInput("sel_ancova","Would you like to run an ANCOVA?",
-        choices=c("No"="tab_initial","Yes"="tab_active"),selected="tab_initial"),
-      #tabset stored as an object--important to keep selectInput outside of tabsetPanel
-      ancova_tabs
-    ),
+  #### Create second tabPanel (instructions)========================================================
+  tabPanel("User guide",
+    h3(strong("Background and purpose")),
+      "This Shiny app was developed to illustrate an ANCOVA using a subset of the mtcars dataset. 
+      Specifically, six models are developed from two types of predictors--continuous and binary--and
+      a dependent continuous variable. The purpose of this app is to demonstrate how to visualize, 
+      model, and analyze data appropriate for an ANCOVA. These are the variables used in the Shiny
+    app.",
+    br(),
+    
+      h4("Variable definitions"),
+        
+      h5("Continuous predictors"),
+        strong("disp"),": displacement (cu.in.)", br(),
+        strong("hp"),": gross horsepower", br(),
+        strong("drat"),": rear axle ratio", br(),
+        strong("qsec"),": quarter mile time",
+        linebreaks(2),
+    
+      h5("Binary predictors"),
+        strong("vs"),": engine (0 = V-shaped, 1 = straight)", br(),
+        strong("am"),": transmission (0 = automatic, 1 = manual)",
+        linebreaks(2),
+    
+      h5("Continuous dependent variable"),
+        strong("mpg"),": mile per gallon",
+        linebreaks(2),
+    
+    h4("Model types"),
+      strong("Mod1"),": full, interactive model with 4 parameters", br(),
+      strong("Mod2"),": full, additive model with 3 parameters", br(),
+      strong("Mod3"),": different slopes, shared intercept (3 parameters)", br(),
+      strong("Mod4"),": no effect of continuous variable (2 parameters)", br(),
+      strong("Mod5"),": no effect of binary variable (2 parameters)", br(),
+      strong("Mod6"),": null model (1 parameter)",
+    
+      linebreaks(2),
+    hr(),
+    h3(strong("Instructions")),
+    h4("Summary stats, plot, and models"),
+    "Select a continuous variable and a binary variable using the drop-down menus. As these
+    selections change, the tables of summary statistics, directly to the right, are dynamically
+    updated. Further, the scatter plot, which defaults to a setting without a model is updated as
+    well.",
+    linebreaks(2),
+    "Once you have found a pair of predictors to analyze, choose different models using the
+    radio buttons underneath the Select regression model header. Each model contains the data points
+    and regression line(s) drawn on the plot (which can be toggled on/off), an equation of the overall 
+    model beneath the plot, estimates and standard errors of the models terms (in the upper table), 
+    and, if applicable, estimates of the model parameters if the model includes multiple lines. 
+    Confidence intervals can be added to the model by selecting 'Yes' under the next header in the
+    sidebar. Information associated with all model components (i.e., data points, regression lines, 
+    CI bands) can be accessed by hovering your pointer over a specific point, line, or band, and
+    these components can be toggled on/off using the legend.",
+    
+    h4("ANCOVA"),
+    "Proceed to the ANCOVA by selecting 'Yes' in the lower left drop-down menu. An ANCOVA of the full, 
+    interactive model (called mod1 in this section and in the scatter plot) will be displayed. Model
+    terms can be iteratively dropped to identify the most appropriate model based on simplicity and
+    significance. Each time a model term is dropped, a new ANOVA table is displayed on the left
+    side and an ANOVA comparing the two models is displayed on the right side"),
   
-  #### ANCOVA Output--------------------------------------------------------------------------------
-    mainPanel(width=10,
-      fluidRow(
-        h3(strong("Analysis of Covariance"))
-      ),
-      fluidRow(
-        htmlOutput("ancova_mod1_text"),
-        tableOutput("ancova_mod1_tab")
-      ),
-      #build rest of UI using make_fluid_row_col fed through map()
-      ancova_mainPanel
+  #### Create third tabPanel (developer info)=======================================================
+  tabPanel("Developer info",
+    fluidRow(
+      column(6,
+        wellPanel(width="50%",
+          p(h4(strong("Keith Post"))),
+          p("If you would like to see the code for this Shiny app, please visit the",
+           tags$a(href="https://github.com/kpost34/ancova_demo_shiny_app",
+                  "Github repo"),
+           "for this project."
+          ),
+          p(tags$a(href="https://github.com/kpost34","GitHub Profile")),
+          p(tags$a(href="https://www.linkedin.com/in/keith-post","LinkedIn"))
+        )
+      )
     )
   )
 )
@@ -580,15 +666,15 @@ shinyApp(ui = ui, server = server)
 
 
 ## DONE
-#improved logic so that term-removing buttons reset to "No" when variable inputs changed and that
-  #they are populated appropriately 
+# rearranged lwr and upr on tooltip
+# added navbarPage tabs
+# finished user guide and added developer tab
 
 
 
 ## LAST COMMIT
-# updated regression model equation function and moved equation upward
-# created make_scatter() to clean up code
-# resolved coloring issue with add_reg_lines() and add_ci_bands()
+#improved logic so that term-removing buttons reset to "No" when variable inputs changed and that
+#they are populated appropriately 
 
 
 

@@ -332,16 +332,16 @@ add_ci_bands<-function(plot_obj,mod_num,num,cat){
                   aes(x=!!sym(num),ymin=lwr,ymax=upr,color=lab0_ci1_4,
                       text=paste0(
                         "\n",num,": ",!!sym(num),
-                        "\n","lwr",": ",lwr,
                         "\n","upr",": ",upr,
+                        "\n","lwr",": ",lwr,
                         "\n",cat,": ",!!sym(cat))),
                   fill="gray50",alpha=0.2,group=1) +
       geom_ribbon(data=~filter(.x,!!sym(cat)==1),
                   aes(x=!!sym(num),ymin=lwr,ymax=upr,color=lab1_ci1_4,
                       text=paste0(
                         "\n",num,": ",!!sym(num),
-                        "\n","lwr",": ",lwr,
                         "\n","upr",": ",upr,
+                        "\n","lwr",": ",lwr,
                         "\n",cat,": ",!!sym(cat))),
                   fill="gray50",alpha=0.2,group=2) +
       #manually apply viridis scale
@@ -356,8 +356,8 @@ add_ci_bands<-function(plot_obj,mod_num,num,cat){
       geom_ribbon(aes(x=!!sym(num),ymin=lwr,ymax=upr,color="ci",
                       text=paste0(
                         "\n",num,": ",!!sym(num),
-                        "\n","lwr",": ",lwr,
-                        "\n","upr",": ",upr)),
+                        "\n","upr",": ",upr,
+                        "\n","lwr",": ",lwr)),
                   fill="gray50",alpha=0.2,group=3) +
       #manually apply viridis scale
       scale_color_manual(values=cols_ci5,
@@ -371,8 +371,8 @@ add_ci_bands<-function(plot_obj,mod_num,num,cat){
       geom_ribbon(aes(x=!!sym(num),ymin=lwr,ymax=upr,color="ci",
                       text=paste0(
                         "\n",num,": ",!!sym(num),
-                        "\n","lwr",": ",lwr,
-                        "\n","upr",": ",upr)),
+                        "\n","upr",": ",upr,
+                        "\n","lwr",": ",lwr)),
                   fill="gray50",alpha=0.2,group=3) +
       #manually apply viridis scale
       scale_color_manual(values=cols_ci6,
