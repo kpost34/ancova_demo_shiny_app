@@ -157,12 +157,11 @@ ui <- navbarPage("ANCOVA Demo App",
   
   #### Create second tabPanel (instructions)========================================================
   tabPanel("User guide",
-    h3(strong("Background and purpose")),
-      "This Shiny app was developed to illustrate an ANCOVA using a subset of the mtcars dataset. 
-      Specifically, six models are developed from two types of predictors--continuous and binary--and
-      a dependent continuous variable. The purpose of this app is to demonstrate how to visualize, 
-      model, and analyze data appropriate for an ANCOVA. These are the variables used in the Shiny
-    app.",
+    h3(strong("Background and Purpose")),
+      "This Shiny app illustrates an ANCOVA using a subset of the mtcars dataset. Six models are 
+      developed from two types of predictors--continuous and binary--and a dependent continuous 
+      variable. The purpose of this app is to demonstrate how to visualize, model, and analyze data 
+      appropriate for an ANCOVA. The following are the variables used in the Shiny app:",
     br(),
     
       h4("Variable definitions"),
@@ -197,18 +196,18 @@ ui <- navbarPage("ANCOVA Demo App",
     h4("Summary stats, plot, and models"),
     "Select a continuous variable and a binary variable using the drop-down menus. As these
     selections change, the tables of summary statistics, directly to the right, are dynamically
-    updated. Further, the scatter plot, which defaults to a setting without a model is updated as
-    well.",
+    updated. The scatter plot, which defaults to a setting without a model is updated as
+    well and contains the numerical variable on the x-axis, mpg on the y-axis, and the points
+    colored according to the binary (categorical) variable.",
     linebreaks(2),
     "Once you have found a pair of predictors to analyze, choose different models using the
-    radio buttons underneath the Select regression model header. Each model contains the data points
-    and regression line(s) drawn on the plot (which can be toggled on/off), an equation of the overall 
-    model beneath the plot, estimates and standard errors of the models terms (in the upper table), 
-    and, if applicable, estimates of the model parameters if the model includes multiple lines. 
-    Confidence intervals can be added to the model by selecting 'Yes' under the next header in the
-    sidebar. Information associated with all model components (i.e., data points, regression lines, 
-    CI bands) can be accessed by hovering your pointer over a specific point, line, or band, and
-    these components can be toggled on/off using the legend.",
+    radio buttons underneath the `Select regression model` header. Each model selection generates 
+    data points and regression line(s) on the plot, an equation of the overall model beneath the plot, 
+    estimates and standard errors of the model terms (in the upper table), and, for models 1-4, estimates 
+    of the model parameters of each line. Confidence intervals can be added to the model by selecting 
+    'Yes' under the next header in the sidebar. Information associated with all model components 
+    (i.e., data points, regression lines, CI bands) can be accessed by hovering your pointer over a 
+    specific point, line, or band, and these components can be toggled on/off using the legend.",
     
     h4("ANCOVA"),
     "Proceed to the ANCOVA by selecting 'Yes' in the lower left drop-down menu. An ANCOVA of the full, 
@@ -697,24 +696,6 @@ server <- function(input, output, session) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
-
-
-## NEXT
-
-
-
-## DONE
-# added a theme 
-# fixed issue where "No model" would not display the plot
-# added reactive plot object to speed up plot display
-
-
-
-## LAST COMMIT 
-# rearranged lwr and upr on tooltip
-# added navbarPage tabs
-# finished user guide and added developer tab
 
 
 
