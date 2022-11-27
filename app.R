@@ -52,7 +52,7 @@ ancova_tabs<-tabsetPanel(
 ##### Define UI ====================================================================================
 ui <- navbarPage("ANCOVA Demo App",
   ### Add theme
-  # theme=bslib::bs_theme(bootswatch="yeti"),
+  theme=bslib::bs_theme(bootswatch="yeti"),
   #### Create first tabPanel (the app)==============================================================
   tabPanel("App",
   
@@ -268,7 +268,8 @@ server <- function(input, output, session) {
     # req(input$rad_mod %in% paste0("mod",1:6))
     switch(input$rad_mod,
            #note: if no model selected, model() is a data frame
-           mod0=mtcars,
+           # mod0=mtcars,
+           mod0=NULL,
            mod1=mtcars %>%
              lm(paste0("mpg","~",input$sel_cat,"*",input$sel_num) %>% as.formula(),data=.),
            mod2=mtcars %>%
@@ -298,40 +299,82 @@ server <- function(input, output, session) {
   })
   
   
-  ### Generate scatter plot and regression lines
-  output$scatter_plot <- renderPlotly({
-    
+  
+  ### NEW APPROACH ###
+  ## Use pred_dat() and functions to make a plot object (w/wo model and/or CI bands)
+  scatter_mod_ci<-reactive({
     #create scatter plot using combined pred-dat reactive object
     p1<-make_scatter(pred_dat(),input$sel_num,input$sel_cat,car)
     
     #dynamically add regression lines
     p2<-add_reg_lines(p1,mod_num=input$rad_mod,num=input$sel_num,cat=input$sel_cat)
     
-    
     #dynamically add CI bands
-    p3<-p2 %>%
+    p2 %>%
       {if(input$rad_ci=="Yes") add_ci_bands(.,input$rad_mod,input$sel_num,input$sel_cat) else .}
+  })
+  
+  
+  
+  ### Generate scatter plot,reg lines, and CI bands from reactive plot and ggplotly()
+  output$scatter_plot <- renderPlotly({
     
     #add plotly specifications
-    ggplotly(p3,tooltip="text") %>%
+    ggplotly(scatter_mod_ci(),tooltip="text") %>%
       #set deep bottom margin
       layout(margin=list(b=160),
              #put legend centered on right of plot
              legend=list(orientation="v",yanchor="top",x=1.02,y=1)) -> pltly1
-
-      #if...else contingent upon whether model is selected
-      if(input$rad_mod %in% paste0("mod",1:6)) {
-        pltly1 %>%
-          #if so, then model equation added as caption
-          layout(annotations=list(x=0,y=-.28,showarrow=F,xref="paper",yref="paper",
-                              xanchor="left",yanchor="auto",xshift=0,yshift=0,
-                              text=paste0("Overall model:"," \n", get_formula(model())),
-                              align="left",font=list(size=13))) -> pltly2
-      }
-      else{pltly1 -> pltly2}
-      pltly2
-
-    })
+    
+    #if...else contingent upon whether model is selected
+    if(input$rad_mod %in% paste0("mod",1:6)) {
+      pltly1 %>%
+        #if so, then model equation added as caption
+        layout(annotations=list(x=0,y=-.28,showarrow=F,xref="paper",yref="paper",
+                                xanchor="left",yanchor="auto",xshift=0,yshift=0,
+                                text=paste0("Overall model:"," \n", get_formula(model())),
+                                align="left",font=list(size=13))) -> pltly2
+    }
+    else{pltly1 -> pltly2}
+    pltly2
+    
+  })
+  
+  
+  ### OLD CODE###
+  # ### Generate scatter plot and regression lines
+  # output$scatter_plot <- renderPlotly({
+  # 
+  #   #create scatter plot using combined pred-dat reactive object
+  #   p1<-make_scatter(pred_dat(),input$sel_num,input$sel_cat,car)
+  #   
+  #   #dynamically add regression lines
+  #   p2<-add_reg_lines(p1,mod_num=input$rad_mod,num=input$sel_num,cat=input$sel_cat)
+  # 
+  # 
+  #   #dynamically add CI bands
+  #   p3<-p2 %>%
+  #     {if(input$rad_ci=="Yes") add_ci_bands(.,input$rad_mod,input$sel_num,input$sel_cat) else .}
+  #   
+  #   #add plotly specifications
+  #   ggplotly(p3,tooltip="text") %>%
+  #     #set deep bottom margin
+  #     layout(margin=list(b=160),
+  #            #put legend centered on right of plot
+  #            legend=list(orientation="v",yanchor="top",x=1.02,y=1)) -> pltly1
+  # 
+  #     #if...else contingent upon whether model is selected
+  #     if(input$rad_mod %in% paste0("mod",1:6)) {
+  #       pltly1 %>%
+  #         #if so, then model equation added as caption
+  #         layout(annotations=list(x=0,y=-.28,showarrow=F,xref="paper",yref="paper",
+  #                             xanchor="left",yanchor="auto",xshift=0,yshift=0,
+  #                             text=paste0("Overall model:"," \n", get_formula(model())),
+  #                             align="left",font=list(size=13))) -> pltly2
+  #     }
+  #     else{pltly1 -> pltly2}
+  #     pltly2
+  #   })
     
   
   
@@ -554,7 +597,8 @@ server <- function(input, output, session) {
     req(input$sel_ancova=="tab_active")
     req(input$rad_manANCOVA1 %in% term_choices1())
     anova(ancova_mod1(),ancova_mod2())[1:6] %>%
-      rename(p=`Pr(>F)`) %>%
+      rename(SS="Sum of Sq",
+             p=`Pr(>F)`) %>%
       mutate(p=ifelse(!is.na(p),
                       signif(p,3) %>% formatC(format="g"),
                       NA_character_))},
@@ -599,7 +643,8 @@ server <- function(input, output, session) {
     req(input$sel_ancova=="tab_active")
     req(input$rad_manANCOVA2 %in% term_choices2())
     anova(ancova_mod2(),ancova_mod3())[1:6] %>%
-      rename(p=`Pr(>F)`) %>%
+      rename(SS="Sum of Sq",
+             p=`Pr(>F)`) %>%
       mutate(p=ifelse(!is.na(p),
                       signif(p,3) %>% formatC(format="g"),
                       NA_character_))},
@@ -636,7 +681,8 @@ server <- function(input, output, session) {
     req(input$sel_ancova=="tab_active")
     req(input$rad_manANCOVA3 %in% term_choices3())
     anova(ancova_mod3(),ancova_mod4)[1:6] %>%
-      rename(p=`Pr(>F)`) %>%
+      rename(SS="Sum of Sq",
+             p=`Pr(>F)`) %>%
       mutate(p=ifelse(!is.na(p),
                       signif(p,3) %>% formatC(format="g"),
                       NA_character_))},
@@ -654,27 +700,21 @@ shinyApp(ui = ui, server = server)
 
 
 
-## LATER
-# customize UI
-
-
 ## NEXT
-# add instructions (and adjust spacing and any other layout if necessary) as a second navbar page
-  #perhaps: "app" and "info" (or "user guide")
-
 
 
 
 ## DONE
+# added a theme 
+# fixed issue where "No model" would not display the plot
+# added reactive plot object to speed up plot display
+
+
+
+## LAST COMMIT 
 # rearranged lwr and upr on tooltip
 # added navbarPage tabs
 # finished user guide and added developer tab
-
-
-
-## LAST COMMIT
-#improved logic so that term-removing buttons reset to "No" when variable inputs changed and that
-#they are populated appropriately 
 
 
 
